@@ -19,6 +19,7 @@ urlpatterns = [
     path('pico/', views.PICOSearchView.as_view(), name='pico_search'),
     
     # Retractions
+    path('evidence-gaps/', views.evidence_gaps, name='evidence_gaps'),
     path('retractions/', views.RetractionsListView.as_view(), name='retractions_list'),
     
     # User features

@@ -1014,3 +1014,196 @@ class RetractionsListView(ListView):
         context['has_filters'] = bool(self.request.GET)
         
         return context
+def evidence_gaps(request):
+    """Evidence Gaps page showing Cochrane SoF analysis with consolidated reviews for oral health."""
+    from django.core.paginator import Paginator
+    from django.db import connection
+    import re
+    from collections import defaultdict, OrderedDict
+    
+    def extract_base_review_id(review_id):
+        """Extract base review ID (e.g., CD000253 from CD000253.PUB3)"""
+        match = re.match(r'(CD\d+)', review_id)
+        return match.group(1) if match else review_id
+    
+    def get_version_number(review_id):
+        """Extract version number for sorting (PUB3 -> 3, no PUB -> 0)"""
+        match = re.search(r'\.PUB(\d+)$', review_id)
+        return int(match.group(1)) if match else 0
+    
+    try:
+        cursor = connection.cursor()
+        
+        # Check if evidence_gaps table exists - if not, show placeholder
+        try:
+            cursor.execute("""SELECT COUNT(*) FROM information_schema.tables 
+                             WHERE table_name = 'evidence_gaps';""")
+            table_exists = cursor.fetchone()[0] > 0
+        except:
+            table_exists = False
+        
+        if not table_exists:
+            # Table doesn't exist yet - show placeholder
+            context = {
+                'evidence_gaps': [],
+                'error': None,
+                'placeholder_mode': True,
+                'total_outcomes': 0,
+                'base_reviews': 0,
+                'grade_counts': {},
+                'populations': [],
+                'interventions': [],
+                'current_search': '',
+                'current_grade': '',
+                'current_population': '',
+                'current_intervention': '',
+                'current_order': 'review_title',
+            }
+            return render(request, 'papers/evidence_gaps.html', context)
+        
+        # Build base query - use original comments as downgrade reasons
+        base_query = """
+        SELECT *, 
+               CASE 
+                   WHEN grade_rating = 'High' THEN 'None'
+                   WHEN grade_rating = 'No Evidence Yet' THEN 'N/A'
+                   WHEN comments IS NOT NULL AND comments != '' THEN comments
+                   ELSE 'Not specified'
+               END as downgrade_reason_summary
+        FROM evidence_gaps
+        WHERE 1=1
+        """
+        params = []
+        
+        # Apply filters
+        search = request.GET.get('q', '').strip()
+        if search:
+            base_query += " AND (review_title ILIKE %s OR population ILIKE %s OR intervention ILIKE %s OR comparison ILIKE %s OR outcome ILIKE %s)"
+            search_param = f"%{search}%"
+            params.extend([search_param] * 5)
+        
+        grade = request.GET.get('grade', '').strip()
+        if grade:
+            base_query += " AND grade_rating = %s"
+            params.append(grade)
+        
+        population = request.GET.get('population', '').strip()
+        if population:
+            base_query += " AND population = %s"
+            params.append(population)
+        
+        intervention = request.GET.get('intervention', '').strip()
+        if intervention:
+            base_query += " AND intervention = %s"
+            params.append(intervention)
+        
+        # Order by review title for better grouping
+        base_query += " ORDER BY review_title, review_id DESC, grade_rating, population, intervention"
+        
+        # Execute main query with dictfetchall
+        cursor.execute(base_query, params)
+        columns = [col[0] for col in cursor.description]
+        evidence_gaps = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        # Group evidence gaps by base review ID
+        grouped_reviews = defaultdict(lambda: {
+            'base_id': '',
+            'latest_title': '',
+            'latest_year': '',
+            'latest_authors': '',
+            'latest_doi': '',
+            'versions': defaultdict(list)
+        })
+        
+        for gap in evidence_gaps:
+            base_id = extract_base_review_id(gap['review_id'])
+            version_num = get_version_number(gap['review_id'])
+            
+            # Update latest title info if this is a newer version
+            if (not grouped_reviews[base_id]['latest_title'] or 
+                version_num > get_version_number(grouped_reviews[base_id]['base_id'])):
+                grouped_reviews[base_id]['base_id'] = gap['review_id']
+                grouped_reviews[base_id]['latest_title'] = gap.get('review_title', '') or base_id
+                grouped_reviews[base_id]['latest_year'] = gap.get('year', '')
+                grouped_reviews[base_id]['latest_authors'] = gap.get('authors', '')
+                grouped_reviews[base_id]['latest_doi'] = gap.get('doi', '')
+            
+            # Group PICOs by version
+            grouped_reviews[base_id]['versions'][gap['review_id']].append(gap)
+        
+        # Convert to ordered list and sort versions within each review
+        consolidated_reviews = []
+        for base_id, review_data in grouped_reviews.items():
+            # Sort versions by version number (descending, so latest first)
+            sorted_versions = OrderedDict()
+            for version_id in sorted(review_data['versions'].keys(), 
+                                   key=get_version_number, reverse=True):
+                sorted_versions[version_id] = review_data['versions'][version_id]
+            
+            review_data['versions'] = sorted_versions
+            consolidated_reviews.append((base_id, review_data))
+        
+        # Sort by title for consistent ordering
+        consolidated_reviews.sort(key=lambda x: x[1]['latest_title'].lower())
+        
+        # Calculate summary statistics
+        total_outcomes = len(evidence_gaps)
+        base_reviews = len(consolidated_reviews)
+        
+        # Grade counts
+        cursor.execute("""
+            SELECT grade_rating, COUNT(*) as count, 
+                   ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM evidence_gaps), 1) as percentage
+            FROM evidence_gaps 
+            GROUP BY grade_rating 
+            ORDER BY 
+                CASE grade_rating 
+                    WHEN 'High' THEN 1 
+                    WHEN 'Moderate' THEN 2 
+                    WHEN 'Low' THEN 3 
+                    WHEN 'Very Low' THEN 4 
+                    WHEN 'No Evidence Yet' THEN 5 
+                    ELSE 6 
+                END
+        """)
+        
+        grade_counts = {}
+        for row in cursor.fetchall():
+            grade_counts[row[0]] = {'count': row[1], 'percentage': row[2]}
+        
+        # Get filter options
+        cursor.execute("SELECT DISTINCT population FROM evidence_gaps WHERE population IS NOT NULL AND population != '' ORDER BY population")
+        populations = [row[0] for row in cursor.fetchall()]
+        
+        cursor.execute("SELECT DISTINCT intervention FROM evidence_gaps WHERE intervention IS NOT NULL AND intervention != '' ORDER BY intervention")
+        interventions = [row[0] for row in cursor.fetchall()]
+        
+        # Prepare context
+        context = {
+            'evidence_gaps': consolidated_reviews,
+            'total_outcomes': total_outcomes,
+            'base_reviews': base_reviews,
+            'grade_counts': grade_counts,
+            'populations': populations,
+            'interventions': interventions,
+            'current_search': search,
+            'current_grade': grade,
+            'current_population': population,
+            'current_intervention': intervention,
+            'current_order': request.GET.get('order_by', 'review_title'),
+            'placeholder_mode': False,
+        }
+        
+        return render(request, 'papers/evidence_gaps.html', context)
+    
+    except Exception as e:
+        return render(request, 'papers/evidence_gaps.html', {
+            'evidence_gaps': [],
+            'error': f'Database error: {str(e)}',
+            'placeholder_mode': True,
+            'total_outcomes': 0,
+            'base_reviews': 0,
+            'grade_counts': {},
+            'populations': [],
+            'interventions': [],
+        })
