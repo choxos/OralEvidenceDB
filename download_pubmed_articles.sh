@@ -24,15 +24,8 @@ do
     echo "Downloading articles for year: $year"
     
     # Create the query with the current year using oral health MeSH terms
-    # For older articles (pre-1966), use broader MeSH Terms; for newer articles use Major Topic
-    # Note: MeSH indexing started in 1966, so use more flexible terms for earlier years
-    if [ "$year" -lt 1966 ]; then
-        # For pre-1966 articles, use broader search with title/abstract and general MeSH terms
-        query="((Stomatognathic Diseases[MeSH Terms]) OR (Dentistry[MeSH Terms]) OR (Oral Health[MeSH Terms]) OR (dentistry[Title/Abstract]) OR (dental[Title/Abstract]) OR (oral health[Title/Abstract]) OR (stomatology[Title/Abstract])) AND (\"${year}\"[Date - Publication] : \"${year}\"[Date - Publication])"
-    else
-        # For 1966+ articles, use MeSH Major Topic for more precision
-        query="(((Stomatognathic Diseases[MeSH Major Topic]) OR (Dentistry[MeSH Major Topic]) OR (Oral Health[MeSH Major Topic])) AND (\"${year}\"[Date - Publication] : \"${year}\"[Date - Publication]))"
-    fi
+    # Note: Using MeSH Major Topic for precision and consistency
+    query="(((Stomatognathic Diseases[MeSH Major Topic]) OR (Dentistry[MeSH Major Topic]) OR (Oral Health[MeSH Major Topic])) AND (\"${year}\"[Date - Publication] : \"${year}\"[Date - Publication]))"
     
     # Output file name
     output_file="data/pubmed_entrez_search/oralevidencedb_pubmed_${year}.txt"
