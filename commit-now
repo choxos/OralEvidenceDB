@@ -1,0 +1,3 @@
+#!/bin/bash
+# Quick auto-commit alias
+/Users/choxos/Documents/GitHub/OralEvidenceDB/auto-commit.sh "$@"
