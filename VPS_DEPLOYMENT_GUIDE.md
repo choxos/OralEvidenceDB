@@ -94,7 +94,7 @@ nano /var/www/oral/.env
 Add the following content:
 
 ```env
-SECRET_KEY=your-super-secret-key-change-this-in-production
+SECRET_KEY=fhsdfh89ru348u3rnt3b674nc3mhxhi7487cx4m8
 DEBUG=False
 DATABASE_NAME=oral_production
 DATABASE_USER=oral_user
@@ -105,13 +105,13 @@ ALLOWED_HOSTS=91.99.161.136,oral.xeradb.com
 PUBMED_SEARCH_QUERY=(Stomatognathic Diseases[MeSH Major Topic]) OR (Dentistry[MeSH Major Topic]) OR (Oral Health[MeSH Major Topic])
 
 # API Keys (get these from respective providers)
-OPENAI_API_KEY=your-openai-key-here
-ANTHROPIC_API_KEY=your-anthropic-key-here
-GOOGLE_AI_API_KEY=your-google-ai-key-here
+OPENAI_API_KEY=your-openai-api-key-here
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+GOOGLE_AI_API_KEY=your-google-ai-api-key-here
 
 # PubMed API (optional but recommended)
-PUBMED_EMAIL=ahmad.pub@gmail.com
-PUBMED_API_KEY=b15aecb7c2315055170736d3eec9f00e1a08
+PUBMED_EMAIL=your-email@example.com
+PUBMED_API_KEY=your-pubmed-api-key-here
 REDIS_URL=redis://localhost:6379/0
 ```
 
