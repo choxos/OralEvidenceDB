@@ -114,12 +114,6 @@ if config('USE_SQLITE_FALLBACK', default=False, cast=bool):
         'NAME': BASE_DIR / 'oral_evidence_db.sqlite3',
         'OPTIONS': {
             'timeout': 30,
-            'init_command': (
-                "PRAGMA journal_mode=WAL; "
-                "PRAGMA synchronous=NORMAL; "
-                "PRAGMA cache_size=10000; "
-                "PRAGMA temp_store=memory;"
-            )
         }
     }
 
