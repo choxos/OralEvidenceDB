@@ -30,20 +30,27 @@ do
     # Output file name
     output_file="data/pubmed_entrez_search/oralevidencedb_pubmed_${year}.txt"
     
-    # Run the esearch and efetch commands
-    esearch -db pubmed -query "$query" | efetch -format medline > "$output_file"
+    # First check if there are any articles for this year
+    article_count=$(esearch -db pubmed -query "$query" | efetch -format uid | wc -l | tr -d ' ')
     
-    # Check if the command was successful
-    if [ $? -eq 0 ]; then
-        # Get the file size to verify content was downloaded
-        file_size=$(wc -c < "$output_file" 2>/dev/null || echo "0")
-        if [ "$file_size" -gt 0 ]; then
-            echo "✓ Successfully downloaded articles for $year (${file_size} bytes)"
+    if [ "$article_count" -gt 0 ]; then
+        # There are articles, so download them to a temporary file first
+        temp_file="${output_file}.tmp"
+        esearch -db pubmed -query "$query" | efetch -format medline > "$temp_file"
+        
+        # Check if the download was successful and has content
+        if [ $? -eq 0 ] && [ -s "$temp_file" ]; then
+            # File has content, move it to final location
+            mv "$temp_file" "$output_file"
+            file_size=$(wc -c < "$output_file" 2>/dev/null || echo "0")
+            echo "✓ Successfully downloaded articles for $year (${article_count} articles, ${file_size} bytes)"
         else
-            echo "⚠ Warning: No articles found for year $year (empty file)"
+            # Download failed or file is empty, remove temp file
+            rm -f "$temp_file"
+            echo "⚠ No content downloaded for year $year (no file created)"
         fi
     else
-        echo "✗ Error downloading articles for year $year"
+        echo "⊝ No articles found for year $year (no file created)"
     fi
     
     # Add a small delay to be respectful to NCBI servers
