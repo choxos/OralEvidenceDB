@@ -81,6 +81,10 @@ media/
 media_root/
 locale/
 
+# Django migrations (uncomment if you don't want to track them)
+# */migrations/*.py
+# !*/migrations/__init__.py
+
 # Celery
 celerybeat-schedule
 celerybeat.pid
@@ -149,7 +153,9 @@ ENV/
 env.bak/
 venv.bak/
 .venv/
+.virtualenv/
 pip-selfcheck.json
+pyvenv.cfg
 
 # ===========================================
 # WEB & ASSETS
@@ -233,6 +239,7 @@ tmp/
 # Local configuration overrides
 local_config.py
 development_settings.py
+local_settings.py
 
 # Data files (large datasets)
 data/
@@ -248,9 +255,57 @@ user_media/
 .cache/
 cache/
 
+# Local development files
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# IDE and editor files
+.vscode/
+*.sublime-*
+.idea/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+
 # ===========================================
 # SECURITY SCANNING RESULTS
 # ===========================================
 .bandit
 .safety
 security_scan_results/
+
+# ===========================================
+# LOCAL DEVELOPMENT ARTIFACTS
+# ===========================================
+# Local server files
+*.pid
+*.sock
+
+# Local backup files
+*.bak
+*.backup
+*.orig
+*~
+
+# Temporary Django files
+*.pot
+
+# Local configuration
+local.py
+dev.py
+production.py
