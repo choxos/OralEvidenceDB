@@ -1,0 +1,471 @@
+/**
+ * OralEvidenceDB Theme Colors
+ * 
+ * This file defines the color scheme for OralEvidenceDB within the Xera DB ecosystem.
+ * Theme: Oral Health, Dentistry & Stomatognathic System Research
+ * Color Palette: Dental blues, oral health greens, and clinical teals
+ */
+
+:root {
+  /* OralEvidenceDB Primary Colors - Dental Blue (Professionalism & Trust) */
+  --xera-primary: #1e40af;
+  --xera-primary-light: #3b82f6;
+  --xera-primary-dark: #1e3a8a;
+  --xera-primary-50: #eff6ff;
+  --xera-primary-100: #dbeafe;
+  --xera-primary-200: #bfdbfe;
+  --xera-primary-300: #93c5fd;
+  --xera-primary-400: #60a5fa;
+  --xera-primary-500: #3b82f6;
+  --xera-primary-600: #2563eb;
+  --xera-primary-700: #1d4ed8;
+  --xera-primary-800: #1e40af;
+  --xera-primary-900: #1e3a8a;
+
+  /* OralEvidenceDB Secondary Colors - Clinical Teal (Health & Cleanliness) */
+  --xera-secondary: #0891b2;
+  --xera-secondary-light: #06b6d4;
+  --xera-secondary-dark: #0e7490;
+  --xera-secondary-50: #ecfeff;
+  --xera-secondary-100: #cffafe;
+  --xera-secondary-500: #06b6d4;
+  --xera-secondary-600: #0891b2;
+  --xera-secondary-700: #0e7490;
+
+  /* OralEvidenceDB Accent Colors - Oral Health Green (Prevention & Wellness) */
+  --xera-accent: #059669;
+  --xera-accent-light: #10b981;
+  --xera-accent-dark: #047857;
+  --xera-accent-50: #ecfdf5;
+  --xera-accent-100: #d1fae5;
+  --xera-accent-500: #10b981;
+  --xera-accent-600: #059669;
+  --xera-accent-700: #047857;
+
+  /* OralEvidenceDB-specific gradients */
+  --oraldb-gradient-primary: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  --oraldb-gradient-secondary: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+  --oraldb-gradient-accent: linear-gradient(135deg, #059669 0%, #047857 100%);
+
+  /* Oral health condition indicator colors */
+  --oral-condition-excellent: #059669;      /* Excellent oral health */
+  --oral-condition-good: #10b981;           /* Good oral health */
+  --oral-condition-fair: #f59e0b;           /* Fair - needs attention */
+  --oral-condition-poor: #dc2626;           /* Poor - requires treatment */
+  --oral-condition-critical: #991b1b;       /* Critical condition */
+
+  /* Dental specialty colors */
+  --specialty-general-dentistry: #1e40af;
+  --specialty-orthodontics: #0891b2;
+  --specialty-periodontics: #059669;
+  --specialty-endodontics: #7c3aed;
+  --specialty-prosthodontics: #d97706;
+  --specialty-oral-surgery: #dc2626;
+  --specialty-pediatric-dentistry: #ec4899;
+  --specialty-oral-pathology: #6b7280;
+  --specialty-oral-radiology: #0284c7;
+  --specialty-public-health-dentistry: #10b981;
+
+  /* Treatment outcome colors */
+  --treatment-success: #059669;
+  --treatment-improvement: #10b981;
+  --treatment-stable: #0891b2;
+  --treatment-decline: #f59e0b;
+  --treatment-failure: #dc2626;
+
+  /* Prevention and risk indicator colors */
+  --risk-low: #059669;                     /* Low caries/periodontal risk */
+  --risk-moderate: #f59e0b;                /* Moderate risk */
+  --risk-high: #dc2626;                    /* High risk */
+  --prevention-excellent: #10b981;         /* Excellent prevention */
+  --prevention-adequate: #0891b2;          /* Adequate prevention */
+  --prevention-poor: #f59e0b;              /* Poor prevention */
+
+  /* Oral health research methodology colors */
+  --methodology-rct: #1e40af;              /* Randomized controlled trials */
+  --methodology-systematic-review: #059669; /* Systematic reviews */
+  --methodology-cohort: #0891b2;           /* Cohort studies */
+  --methodology-case-control: #7c3aed;     /* Case-control studies */
+  --methodology-cross-sectional: #d97706;  /* Cross-sectional studies */
+  --methodology-case-report: #6b7280;      /* Case reports/series */
+
+  /* Evidence quality colors (GRADE system) */
+  --evidence-high: #059669;                /* High quality evidence */
+  --evidence-moderate: #0891b2;            /* Moderate quality evidence */
+  --evidence-low: #f59e0b;                 /* Low quality evidence */
+  --evidence-very-low: #dc2626;            /* Very low quality evidence */
+
+  /* Age group colors for dental research */
+  --age-early-childhood: #ec4899;          /* 0-5 years (pediatric) */
+  --age-childhood: #3b82f6;                /* 6-12 years */
+  --age-adolescent: #8b5cf6;               /* 13-18 years (orthodontic focus) */
+  --age-young-adult: #10b981;              /* 19-35 years */
+  --age-middle-aged: #0891b2;              /* 36-55 years */
+  --age-elderly: #6b7280;                  /* 55+ years (geriatric dentistry) */
+
+  /* Clinical measurement colors */
+  --measurement-normal: #059669;
+  --measurement-borderline: #f59e0b;
+  --measurement-abnormal: #dc2626;
+  --measurement-missing: #6b7280;
+
+  /* Database status colors for oral health data */
+  --status-complete-data: #059669;
+  --status-partial-data: #f59e0b;
+  --status-missing-data: #dc2626;
+  --status-processing: #0891b2;
+
+  /* Interactive elements */
+  --oraldb-hover-primary: #1e3a8a;
+  --oraldb-hover-secondary: #0e7490;
+  --oraldb-hover-accent: #047857;
+
+  /* Border colors for oral health elements */
+  --border-dental-procedure: #1e40af;
+  --border-preventive-care: #059669;
+  --border-treatment-outcome: #0891b2;
+  --border-oral-pathology: #dc2626;
+}
+
+/* OralEvidenceDB Custom Component Styles */
+
+/* Oral health condition cards styling */
+.oral-condition-card {
+  border-left: 4px solid var(--xera-primary);
+  background: linear-gradient(135deg, var(--xera-primary-50) 0%, #ffffff 100%);
+  transition: var(--xera-transition);
+}
+
+.oral-condition-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--xera-shadow-md);
+}
+
+.oral-condition-card--excellent {
+  border-left-color: var(--oral-condition-excellent);
+}
+
+.oral-condition-card--good {
+  border-left-color: var(--oral-condition-good);
+}
+
+.oral-condition-card--fair {
+  border-left-color: var(--oral-condition-fair);
+}
+
+.oral-condition-card--poor {
+  border-left-color: var(--oral-condition-poor);
+}
+
+/* Dental specialty indicators */
+.specialty-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: var(--xera-space-2);
+}
+
+.specialty-indicator--general {
+  background-color: var(--specialty-general-dentistry);
+}
+
+.specialty-indicator--orthodontics {
+  background-color: var(--specialty-orthodontics);
+}
+
+.specialty-indicator--periodontics {
+  background-color: var(--specialty-periodontics);
+}
+
+.specialty-indicator--endodontics {
+  background-color: var(--specialty-endodontics);
+}
+
+.specialty-indicator--prosthodontics {
+  background-color: var(--specialty-prosthodontics);
+}
+
+.specialty-indicator--oral-surgery {
+  background-color: var(--specialty-oral-surgery);
+}
+
+/* Evidence quality badges */
+.evidence-grade-badge {
+  padding: var(--xera-space-1) var(--xera-space-3);
+  border-radius: var(--xera-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.evidence-grade-badge--high {
+  background-color: var(--evidence-high);
+  color: white;
+}
+
+.evidence-grade-badge--moderate {
+  background-color: var(--evidence-moderate);
+  color: white;
+}
+
+.evidence-grade-badge--low {
+  background-color: var(--evidence-low);
+  color: white;
+}
+
+.evidence-grade-badge--very-low {
+  background-color: var(--evidence-very-low);
+  color: white;
+}
+
+/* Treatment outcome indicators */
+.treatment-outcome-indicator {
+  padding: var(--xera-space-2) var(--xera-space-3);
+  border-radius: var(--xera-radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.treatment-outcome-indicator--success {
+  background-color: var(--treatment-success);
+  color: white;
+}
+
+.treatment-outcome-indicator--improvement {
+  background-color: var(--treatment-improvement);
+  color: white;
+}
+
+.treatment-outcome-indicator--stable {
+  background-color: var(--treatment-stable);
+  color: white;
+}
+
+.treatment-outcome-indicator--decline {
+  background-color: var(--treatment-decline);
+  color: white;
+}
+
+/* Header gradient for OralEvidenceDB */
+.oraldb-header {
+  background: var(--oraldb-gradient-primary);
+  color: white;
+}
+
+/* Navigation highlighting */
+.nav-item.active {
+  border-bottom: 2px solid var(--xera-primary);
+  color: var(--xera-primary);
+}
+
+/* Custom button styles */
+.btn-oral {
+  background: var(--oraldb-gradient-primary);
+  color: white;
+  border: none;
+  transition: var(--xera-transition);
+}
+
+.btn-oral:hover {
+  background: var(--oraldb-gradient-accent);
+  transform: translateY(-1px);
+  box-shadow: var(--xera-shadow-md);
+}
+
+.btn-preventive {
+  background: var(--oraldb-gradient-accent);
+  color: white;
+  border: none;
+  transition: var(--xera-transition);
+}
+
+.btn-preventive:hover {
+  background: var(--oraldb-gradient-secondary);
+  transform: translateY(-1px);
+  box-shadow: var(--xera-shadow-md);
+}
+
+/* Progress indicators for data processing */
+.processing-indicator {
+  background: linear-gradient(90deg, var(--xera-primary-200) 25%, transparent 25%);
+  background-size: 1rem 1rem;
+  animation: progress-bar 1s linear infinite;
+}
+
+@keyframes progress-bar {
+  0% { background-position: 0 0; }
+  100% { background-position: 1rem 0; }
+}
+
+/* Age group color coding */
+.age-group-badge {
+  padding: var(--xera-space-1) var(--xera-space-2);
+  border-radius: var(--xera-radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+}
+
+.age-group-badge--early-childhood {
+  background-color: var(--age-early-childhood);
+}
+
+.age-group-badge--childhood {
+  background-color: var(--age-childhood);
+}
+
+.age-group-badge--adolescent {
+  background-color: var(--age-adolescent);
+}
+
+.age-group-badge--young-adult {
+  background-color: var(--age-young-adult);
+}
+
+.age-group-badge--middle-aged {
+  background-color: var(--age-middle-aged);
+}
+
+.age-group-badge--elderly {
+  background-color: var(--age-elderly);
+}
+
+/* Risk assessment indicators */
+.risk-indicator {
+  padding: var(--xera-space-1) var(--xera-space-2);
+  border-radius: var(--xera-radius);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: white;
+}
+
+.risk-indicator--low {
+  background-color: var(--risk-low);
+}
+
+.risk-indicator--moderate {
+  background-color: var(--risk-moderate);
+}
+
+.risk-indicator--high {
+  background-color: var(--risk-high);
+}
+
+/* Clinical measurement status */
+.measurement-status {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--xera-space-1);
+}
+
+.measurement-status--normal {
+  background-color: var(--measurement-normal);
+}
+
+.measurement-status--borderline {
+  background-color: var(--measurement-borderline);
+}
+
+.measurement-status--abnormal {
+  background-color: var(--measurement-abnormal);
+}
+
+.measurement-status--missing {
+  background-color: var(--measurement-missing);
+}
+
+/* Methodology badges for research studies */
+.methodology-badge {
+  padding: var(--xera-space-1) var(--xera-space-2);
+  border-radius: var(--xera-radius);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+}
+
+.methodology-badge--rct {
+  background-color: var(--methodology-rct);
+}
+
+.methodology-badge--systematic-review {
+  background-color: var(--methodology-systematic-review);
+}
+
+.methodology-badge--cohort {
+  background-color: var(--methodology-cohort);
+}
+
+.methodology-badge--case-control {
+  background-color: var(--methodology-case-control);
+}
+
+.methodology-badge--cross-sectional {
+  background-color: var(--methodology-cross-sectional);
+}
+
+.methodology-badge--case-report {
+  background-color: var(--methodology-case-report);
+}
+
+/* Data completeness indicators */
+.data-completeness-bar {
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background-color: var(--xera-gray-200);
+}
+
+.data-completeness-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.data-completeness-fill--complete {
+  background-color: var(--status-complete-data);
+}
+
+.data-completeness-fill--partial {
+  background-color: var(--status-partial-data);
+}
+
+.data-completeness-fill--missing {
+  background-color: var(--status-missing-data);
+}
+
+/* Oral health specific animations */
+@keyframes dental-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(30, 64, 175, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(30, 64, 175, 0);
+  }
+}
+
+.dental-pulse {
+  animation: dental-pulse 2s infinite;
+}
+
+/* Responsive design adjustments for oral health data */
+@media (max-width: 768px) {
+  .oral-condition-card {
+    margin-bottom: var(--xera-space-4);
+  }
+  
+  .specialty-indicator {
+    width: 10px;
+    height: 10px;
+  }
+  
+  .evidence-grade-badge,
+  .methodology-badge,
+  .age-group-badge {
+    font-size: 0.625rem;
+    padding: var(--xera-space-1) var(--xera-space-2);
+  }
+}

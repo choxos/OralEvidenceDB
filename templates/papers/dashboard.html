@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+{% load percentage_filters %}
+
+{% block title %}Dashboard - OralEvidenceDB{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="h2 mb-3">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </h1>
+        <p class="lead text-muted">
+            Welcome to OralEvidenceDB - your comprehensive resource for oral health research evidence.
+        </p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl col-lg col-md-4 col-6 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Total Papers</h6>
+                        <h3 class="mb-0">{{ stats.total_papers|default:0 }}</h3>
+                    </div>
+                    <div class="text-primary">
+                        <i class="bi bi-file-medical fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl col-lg col-md-4 col-6 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Papers with PICO</h6>
+                        <h3 class="mb-0">{{ stats.papers_with_pico|default:0 }}</h3>
+                    </div>
+                    <div class="text-success">
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+                {% if stats.total_papers > 0 %}
+                <div class="mt-auto pt-2">
+                    <small class="text-muted">
+                        {{ stats.papers_with_pico|default:0|floatformat:0 }}/{{ stats.total_papers }} 
+                        ({{ stats.papers_with_pico|smart_percentage:stats.total_papers }})
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl col-lg col-md-4 col-6 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Journals</h6>
+                        <h3 class="mb-0">{{ stats.total_journals|default:0 }}</h3>
+                    </div>
+                    <div class="text-info">
+                        <i class="bi bi-journal-bookmark fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl col-lg col-md-4 col-6 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Shared Data</h6>
+                        <h3 class="mb-0">{{ stats.papers_with_datasets|default:0 }}</h3>
+                    </div>
+                    <div class="text-warning">
+                        <i class="bi bi-database fs-1"></i>
+                    </div>
+                </div>
+                {% if stats.total_papers > 0 %}
+                <div class="mt-auto pt-2">
+                    <small class="text-muted">
+                        {{ stats.papers_with_datasets|default:0|floatformat:0 }}/{{ stats.total_papers }} 
+                        ({{ stats.papers_with_datasets|smart_percentage:stats.total_papers }})
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl col-lg col-md-4 col-6 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-subtitle mb-2 text-muted">Retracted Papers</h6>
+                        <h3 class="mb-0">{{ stats.retracted_papers|default:0 }}</h3>
+                    </div>
+                    <div class="text-danger">
+                        <i class="bi bi-exclamation-triangle-fill fs-1"></i>
+                    </div>
+                </div>
+                {% if stats.total_papers > 0 and stats.retracted_papers > 0 %}
+                <div class="mt-auto pt-2">
+                    <small class="text-muted">
+                        {{ stats.retracted_papers|default:0|floatformat:0 }}/{{ stats.total_papers }} 
+                        ({{ stats.retracted_papers|smart_percentage:stats.total_papers }})
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Papers -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history"></i> Recent Oral Health Papers
+                </h5>
+                <a href="{% url 'papers:list' %}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body d-flex flex-column">
+                {% if recent_papers %}
+                    {% for paper in recent_papers %}
+                    <div class="d-flex mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">
+                                <a href="{% url 'papers:detail' pmid=paper.pmid %}" class="text-decoration-none">
+                                    {{ paper.title|truncatechars:80 }}
+                                </a>
+                            </h6>
+                            <p class="mb-1 text-muted small">
+                                <i class="bi bi-journal"></i> {{ paper.journal.name|truncatechars:40 }}
+                                {% if paper.publication_year %}
+                                    • {{ paper.publication_year }}
+                                {% endif %}
+                            </p>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-primary me-2">PMID: {{ paper.pmid }}</span>
+                                {% if paper.pico_extractions.count %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> {{ paper.pico_extractions.count }} PICO{{ paper.pico_extractions.count|pluralize }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No oral health papers available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent PICO Extractions -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-robot"></i> Recent PICO Extractions
+                </h5>
+                <a href="{% url 'papers:pico_search' %}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body d-flex flex-column">
+                {% if recent_pico_papers %}
+                    {% for paper in recent_pico_papers %}
+                    <div class="mb-3 {% if not forloop.last %}border-bottom pb-3{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    <a href="{% url 'papers:detail' pmid=paper.pmid %}" class="text-decoration-none">
+                                        {{ paper.title|truncatechars:60 }}
+                                    </a>
+                                </h6>
+                                <p class="mb-1 text-muted small">
+                                    <i class="bi bi-journal"></i> {{ paper.journal.name|truncatechars:40 }}
+                                    {% if paper.publication_year %}
+                                        • {{ paper.publication_year }}
+                                    {% endif %}
+                                </p>
+                                <p class="mb-1 text-muted small">
+                                    <i class="bi bi-clock"></i> Latest extraction: {{ paper.latest_pico_date|timesince }} ago
+                                </p>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge bg-primary me-2">PMID: {{ paper.pmid }}</span>
+                                    <span class="badge bg-success">{{ paper.pico_count }} PICO{{ paper.pico_count|pluralize }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No PICO extractions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Retractions -->
+{% if recent_retractions %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Recent Retractions in Oral Health
+                </h5>
+                <small class="text-light">Stay informed about retracted research</small>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning" role="alert">
+                    <strong><i class="bi bi-info-circle"></i> Important Notice:</strong> 
+                    The following oral health articles have been recently retracted. Please be aware when reviewing related research.
+                </div>
+                
+                <div class="row">
+                    {% for retraction in recent_retractions %}
+                    <div class="col-lg-6 mb-3">
+                        <div class="card h-100 border-danger">
+                            <div class="card-body">
+                                <h6 class="card-title text-danger mb-2">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> {{ retraction.original_title|truncatechars:80 }}
+                                </h6>
+                                
+                                <div class="mb-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-journal"></i> {{ retraction.journal|default:"Journal not specified" }}
+                                        {% if retraction.original_paper_date %}
+                                            • Originally published: {{ retraction.original_paper_date|date:"Y" }}
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                
+                                <div class="mb-2">
+                                    <span class="badge bg-danger">Retracted: {{ retraction.retraction_date|date:"M d, Y" }}</span>
+                                    {% if retraction.retraction_nature %}
+                                        <span class="badge bg-warning text-dark">{{ retraction.retraction_nature }}</span>
+                                    {% endif %}
+                                </div>
+                                
+                                {% if retraction.reason_list %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">Reason(s):</small>
+                                    {% for reason in retraction.reason_list|slice:":2" %}
+                                        <span class="badge bg-secondary me-1">{{ reason }}</span>
+                                    {% endfor %}
+                                    {% if retraction.reason_list|length > 2 %}
+                                        <small class="text-muted">+{{ retraction.reason_list|length|add:"-2" }} more</small>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                                
+                                <div class="mt-3">
+                                    {% if retraction.original_pubmed_id %}
+                                        <a href="{% url 'papers:detail' pmid=retraction.original_pubmed_id %}" class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="bi bi-file-text"></i> View Article Profile
+                                        </a>
+                                    {% endif %}
+                                    {% if retraction.retraction_doi %}
+                                        <a href="https://doi.org/{{ retraction.retraction_doi }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-link-45deg"></i> Retraction Notice
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'papers:retractions_list' %}" class="btn btn-outline-danger">
+                        <i class="bi bi-eye"></i> Show All Retractions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning"></i> Quick Actions
+                </h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'papers:list' %}" class="btn btn-outline-primary w-100">
+                            <i class="bi bi-search"></i><br>
+                            <small>Browse Papers</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'papers:list' %}?has_pico=false" class="btn btn-outline-warning w-100">
+                            <i class="bi bi-exclamation-triangle"></i><br>
+                            <small>Papers without PICO</small>
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'api:documentation' %}" class="btn btn-outline-info w-100">
+                            <i class="bi bi-code-slash"></i><br>
+                            <small>API Documentation</small>
+                        </a>
+                    </div>
+                    {% if user.is_staff %}
+                    <div class="col-md-3 mb-2">
+                        <a href="/admin/" class="btn btn-outline-secondary w-100">
+                            <i class="bi bi-gear"></i><br>
+                            <small>Admin Panel</small>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle PICO collapse chevron rotation
+    const picoCollapses = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    picoCollapses.forEach(function(button) {
+        const targetId = button.getAttribute('data-bs-target');
+        const target = document.querySelector(targetId);
+        const chevron = button.querySelector('.bi-chevron-down, .bi-chevron-up');
+        
+        if (target && chevron) {
+            target.addEventListener('show.bs.collapse', function() {
+                chevron.classList.remove('bi-chevron-down');
+                chevron.classList.add('bi-chevron-up');
+            });
+            
+            target.addEventListener('hide.bs.collapse', function() {
+                chevron.classList.remove('bi-chevron-up');
+                chevron.classList.add('bi-chevron-down');
+            });
+        }
+    });
+});
+</script>
+
+{% endblock %}

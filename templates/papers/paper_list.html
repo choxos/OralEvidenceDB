@@ -1,0 +1,353 @@
+{% extends 'base.html' %}
+
+{% block title %}Papers - OralEvidenceDB{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h2 mb-0">
+        <i class="bi bi-journal-medical"></i> Research Papers
+    </h1>
+    <div>
+        <span class="text-muted">{{ page_obj.paginator.count }} papers found</span>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" action="{% url 'papers:list' %}" class="row g-3">
+            <div class="col-md-4">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" class="form-control" id="search" name="q" 
+                       value="{{ current_search }}" placeholder="Title, abstract, authors...">
+            </div>
+            
+            <div class="col-md-2">
+                <label for="journal" class="form-label">Journal</label>
+                <select class="form-select" id="journal" name="journal">
+                    <option value="">All Journals</option>
+                    {% for journal in journals %}
+                            <option value="{{ journal.id }}" 
+                                {% if current_journal == journal.id|stringformat:"s" %}selected{% endif %}>
+                            {{ journal.name|truncatechars:30 }} ({{ journal.paper_count }})
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="year" class="form-label">Year</label>
+                <select class="form-select" id="year" name="year">
+                    <option value="">All Years</option>
+                    {% for year in years %}
+                        {% if year %}
+                            <option value="{{ year }}" 
+                                    {% if current_year == year|stringformat:"s" %}selected{% endif %}>
+                                {{ year }}
+                            </option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="has_pico" class="form-label">PICO Status</label>
+                <select class="form-select" id="has_pico" name="has_pico">
+                    <option value="">All Papers</option>
+                    <option value="true" {% if current_has_pico == "true" %}selected{% endif %}>
+                        With PICO
+                    </option>
+                    <option value="false" {% if current_has_pico == "false" %}selected{% endif %}>
+                        Without PICO
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <label for="order_by" class="form-label">Sort by</label>
+                <select class="form-select" id="order_by" name="order_by">
+                    <option value="-publication_date" {% if current_order == "-publication_date" %}selected{% endif %}>
+                        Newest First
+                    </option>
+                    <option value="publication_date" {% if current_order == "publication_date" %}selected{% endif %}>
+                        Oldest First
+                    </option>
+                    <option value="title" {% if current_order == "title" %}selected{% endif %}>
+                        Title A-Z
+                    </option>
+                    <option value="-pmid" {% if current_order == "-pmid" %}selected{% endif %}>
+                        PMID Desc
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> Apply Filters
+                </button>
+                <a href="{% url 'papers:list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Clear
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Results -->
+{% if papers %}
+    <!-- Paper Cards -->
+    <div class="row">
+        {% for paper in papers %}
+        <div class="col-12 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-9">
+                            <h5 class="card-title mb-2">
+                                <a href="{% url 'papers:detail' pmid=paper.pmid %}" class="text-decoration-none">
+                                    {{ paper.title }}
+                                </a>
+                                {% if paper.is_retracted %}
+                                    <span class="badge bg-danger ms-2" title="This article has been retracted">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> RETRACTED
+                                    </span>
+                                {% endif %}
+                            </h5>
+                            
+                            <p class="text-muted mb-2">
+                                <i class="bi bi-journal"></i> 
+                                <strong>{{ paper.journal.name }}</strong>
+                                {% if paper.publication_year %}
+                                    • {{ paper.publication_year }}
+                                {% endif %}
+                                {% if paper.volume %}
+                                    • Vol. {{ paper.volume }}
+                                {% endif %}
+                                {% if paper.issue %}
+                                    ({{ paper.issue }})
+                                {% endif %}
+                            </p>
+                            
+                            {% if paper.abstract %}
+                                <p class="card-text text-muted">
+                                    {{ paper.abstract|truncatechars:200 }}
+                                </p>
+                            {% endif %}
+                            
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <span class="badge bg-primary">PMID: {{ paper.pmid }}</span>
+                                {% if paper.pico_extractions.count %}
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> {{ paper.pico_extractions.count }} PICO{{ paper.pico_extractions.count|pluralize }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">
+                                        <i class="bi bi-clock"></i> PICO Pending
+                                    </span>
+                                {% endif %}
+                                {% if paper.doi %}
+                                    <span class="badge bg-info">DOI</span>
+                                {% endif %}
+                                {% if paper.pmc %}
+                                    <span class="badge bg-info">PMC</span>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Authors (if available) -->
+                            {% if paper.authors.exists %}
+                                <p class="mb-0 text-muted small">
+                                    <i class="bi bi-people"></i>
+                                    {% for author in paper.authors.all|slice:":3" %}
+                                        {{ author.last_name }}, {{ author.first_name|first }}{% if not forloop.last %};{% endif %}
+                                    {% endfor %}
+                                    {% if paper.author_count > 3 %}
+                                        <em>et al. ({{ paper.author_count }} authors)</em>
+                                    {% endif %}
+                                </p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-3 text-md-end">
+                            <div class="btn-group-vertical" role="group">
+                                <a href="{% url 'papers:detail' pmid=paper.pmid %}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-eye"></i> View Details
+                                </a>
+                                
+                                {% if paper.pubmed_url %}
+                                    <a href="{{ paper.pubmed_url }}" target="_blank" 
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-box-arrow-up-right"></i> PubMed
+                                    </a>
+                                {% endif %}
+                                
+                                {% if paper.doi_url %}
+                                    <a href="{{ paper.doi_url }}" target="_blank" 
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-link-45deg"></i> DOI
+                                    </a>
+                                {% endif %}
+                                
+                                {% if user.is_authenticated %}
+                                    <button class="btn btn-outline-warning btn-sm bookmark-btn" 
+                                            data-pmid="{{ paper.pmid }}">
+                                        <i class="bi bi-bookmark"></i> Bookmark
+                                    </button>
+                                {% endif %}
+                            </div>
+                            
+                            {% if paper.publication_date %}
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Published: {{ paper.publication_date|date:"M d, Y" }}
+                                    </small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+        <nav aria-label="Paper pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                            <i class="bi bi-chevron-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                            <i class="bi bi-chevron-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        
+        <div class="text-center text-muted">
+            Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} papers
+        </div>
+    {% endif %}
+    
+{% else %}
+    <!-- No Results -->
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-search display-4 text-muted mb-3"></i>
+            <h4>No papers found</h4>
+            <p class="text-muted">
+                {% if current_search or current_journal or current_year or current_has_pico %}
+                    Try adjusting your search filters or 
+                    <a href="{% url 'papers:list' %}">view all papers</a>.
+                {% else %}
+                    No papers have been imported yet. 
+                    {% if user.is_staff %}
+                        <a href="/admin/">Import some papers</a> to get started.
+                    {% endif %}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Bookmark functionality
+document.querySelectorAll('.bookmark-btn').forEach(button => {
+    button.addEventListener('click', function() {
+        const pmid = this.dataset.pmid;
+        const btn = this;
+        
+        fetch(`{% url 'papers:bookmark_paper' pmid=0 %}`.replace('0', pmid), {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const icon = btn.querySelector('i');
+                if (data.is_bookmarked) {
+                    icon.className = 'bi bi-bookmark-fill';
+                    btn.classList.remove('btn-outline-warning');
+                    btn.classList.add('btn-warning');
+                } else {
+                    icon.className = 'bi bi-bookmark';
+                    btn.classList.remove('btn-warning');
+                    btn.classList.add('btn-outline-warning');
+                }
+                
+                // Show toast notification
+                showToast(data.message, 'success');
+            }
+        })
+        .catch(error => {
+            console.error('Bookmark error:', error);
+            showToast('Error updating bookmark', 'error');
+        });
+    });
+});
+
+function showToast(message, type = 'info') {
+    // Simple toast notification
+    const toastContainer = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show`;
+    toast.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.style.cssText = 'position: fixed; top: 80px; right: 20px; z-index: 1055; max-width: 350px;';
+    document.body.appendChild(container);
+    return container;
+}
+</script>
+{% endblock %}

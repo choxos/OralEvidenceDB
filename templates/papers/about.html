@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}About - OralEvidenceDB{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Hero Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card bg-gradient" style="background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white;">
+                <div class="card-body text-center py-5">
+                    <h1 class="display-4 fw-bold mb-3">
+                        <i class="bi bi-tooth me-3"></i>OralEvidenceDB
+                    </h1>
+                    <p class="lead mb-4">
+                        Advancing oral health research through AI-powered evidence synthesis
+                    </p>
+                    <p class="mb-0">
+                        <i class="bi bi-geo-alt me-2"></i>McMaster University | <i class="bi bi-people me-2"></i>OralEvidence Research Team
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mission Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body p-5">
+                    <h2 class="h3 text-center mb-4" style="color: var(--primary-color);">
+                        <i class="bi bi-bullseye me-2"></i>Our Mission
+                    </h2>
+                    <p class="lead text-center mb-4">
+                        To revolutionize oral health research by providing researchers worldwide with comprehensive, 
+                        AI-enhanced access to evidence-based medical literature in dentistry, stomatognathic diseases, and oral health.
+                    </p>
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3">
+                            <div class="bg-light p-3 rounded">
+                                <i class="bi bi-search display-6 text-primary mb-2"></i>
+                                <h5>Comprehensive Search</h5>
+                                <p class="mb-0 small">Access thousands of oral health papers from PubMed with advanced filtering</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="bg-light p-3 rounded">
+                                <i class="bi bi-robot display-6 text-primary mb-2"></i>
+                                <h5>AI-Powered PICO</h5>
+                                <p class="mb-0 small">Automated extraction of Population, Intervention, Comparison, Outcome elements</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="bg-light p-3 rounded">
+                                <i class="bi bi-graph-up display-6 text-primary mb-2"></i>
+                                <h5>Evidence Synthesis</h5>
+                                <p class="mb-0 small">Support systematic reviews, meta-analyses, and clinical practice guidelines</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Research Team Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="h3 text-center mb-4" style="color: var(--primary-color);">
+                <i class="bi bi-people me-2"></i>Research Team
+            </h2>
+            <div class="row">
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="rounded-circle bg-primary mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="bi bi-person-badge text-white" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">Dr. Dena Zeraatkar</h5>
+                            <p class="card-text text-muted">Principal Investigator</p>
+                            <p class="small">Leading evidence synthesis methodologies and systematic review innovations in oral health research</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="rounded-circle bg-primary mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="bi bi-person-badge text-white" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">Dr. Jinhui Ma</h5>
+                            <p class="card-text text-muted">Co-Investigator</p>
+                            <p class="small">Biostatistics and meta-analysis methodology expert, advancing quantitative research methods</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="rounded-circle bg-primary mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="bi bi-person-badge text-white" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">Dr. João Pedro Lima</h5>
+                            <p class="card-text text-muted">Co-Investigator</p>
+                            <p class="small">Clinical research and evidence-based medicine specialist in oral health</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <div class="rounded-circle bg-primary mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                <i class="bi bi-person-badge text-white" style="font-size: 2rem;"></i>
+                            </div>
+                            <h5 class="card-title">Dr. Amir Azarpazhooh</h5>
+                            <p class="card-text text-muted">Co-Investigator</p>
+                            <p class="small">Clinical dentistry and oral health epidemiology research, preventive dentistry</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- McMaster University Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card bg-light">
+                <div class="card-body p-4">
+                    <div class="text-center">
+                        <h3 style="color: var(--primary-color);">
+                            <i class="bi bi-building me-2"></i>McMaster University
+                        </h3>
+                        <p class="lead mb-3">A Global Leader in Health Research Excellence</p>
+                        <p class="mb-4">
+                            The OralEvidenceDB project is proudly developed at McMaster University, a world-renowned institution 
+                            at the forefront of evidence-based medicine and health research methodology. McMaster's commitment to 
+                            innovation and rigorous scientific inquiry provides the perfect foundation for advancing oral health 
+                            research through cutting-edge technology and AI.
+                        </p>
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-2">
+                                <strong style="color: var(--primary-color);">Evidence-Based Medicine</strong>
+                                <br><small class="text-muted">Pioneering systematic review methodologies</small>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <strong style="color: var(--primary-color);">Global Impact</strong>
+                                <br><small class="text-muted">Research influencing worldwide clinical practice</small>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <strong style="color: var(--primary-color);">Innovation Hub</strong>
+                                <br><small class="text-muted">Advancing medical research through technology</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- What We Do Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="h3 text-center mb-4" style="color: var(--primary-color);">
+                <i class="bi bi-gear me-2"></i>What We Do
+            </h2>
+            <div class="row">
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-file-earmark-medical text-primary me-2"></i>
+                                Systematic Reviews & Meta-Analyses
+                            </h5>
+                            <p class="card-text">
+                                Our database supports comprehensive systematic reviews and meta-analyses by providing 
+                                structured access to oral health literature with AI-extracted PICO elements, enabling 
+                                researchers to efficiently identify relevant studies and synthesize evidence.
+                            </p>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Automated literature discovery</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>PICO element extraction</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Study classification and filtering</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-clipboard-data text-primary me-2"></i>
+                                Clinical Practice Guidelines
+                            </h5>
+                            <p class="card-text">
+                                Support the development of evidence-based clinical practice guidelines by providing 
+                                comprehensive access to high-quality research evidence, with advanced filtering and 
+                                analysis capabilities to inform clinical decision-making in dentistry and oral health.
+                            </p>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Evidence quality assessment</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Clinical trial identification</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Outcome measure analysis</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-graph-up-arrow text-primary me-2"></i>
+                                Methods Research
+                            </h5>
+                            <p class="card-text">
+                                Advance methods for the interpretation and application of oral health research through 
+                                innovative approaches to evidence synthesis, data analysis, and knowledge translation.
+                            </p>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success me-2"></i>AI-powered evidence extraction</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Novel synthesis methodologies</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Knowledge translation tools</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-mortarboard text-primary me-2"></i>
+                                Training & Development
+                            </h5>
+                            <p class="card-text">
+                                Provide training opportunities for graduate students, research assistants, coordinators, 
+                                and postdoctoral fellows in state-of-the-art methods of evidence synthesis and evaluation.
+                            </p>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Hands-on research experience</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Manuscript co-authorship</li>
+                                <li><i class="bi bi-check-circle text-success me-2"></i>Professional development</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Technology Section -->
+    <div class="row mb-5">
+        <div class="col-lg-10 mx-auto">
+            <div class="card">
+                <div class="card-body p-5">
+                    <h2 class="h3 text-center mb-4" style="color: var(--primary-color);">
+                        <i class="bi bi-cpu me-2"></i>Technology & Innovation
+                    </h2>
+                    <p class="text-center mb-4">
+                        OralEvidenceDB leverages cutting-edge artificial intelligence and modern web technologies 
+                        to transform how researchers access and analyze oral health literature.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <h5><i class="bi bi-robot text-primary me-2"></i>AI-Powered PICO Extraction</h5>
+                            <p>
+                                Our system uses advanced Large Language Models (OpenAI GPT, Anthropic Claude, Google Gemini) 
+                                to automatically extract PICO elements from research abstracts, including Population, 
+                                Intervention, Comparison, Outcome, Setting, Study Type, and Timeframe.
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <h5><i class="bi bi-database text-primary me-2"></i>Comprehensive Database</h5>
+                            <p>
+                                Integrated with PubMed's E-utilities API to continuously import and index oral health 
+                                research papers, providing researchers with up-to-date access to the latest evidence 
+                                in stomatognathic diseases, dentistry, and oral health.
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <h5><i class="bi bi-search text-primary me-2"></i>Advanced Search & Filtering</h5>
+                            <p>
+                                Sophisticated search capabilities allow researchers to filter studies by PICO elements, 
+                                study types, publication years, journals, and more, enabling precise identification of 
+                                relevant research.
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <h5><i class="bi bi-cloud text-primary me-2"></i>VPS-Native Architecture</h5>
+                            <p>
+                                Built on modern infrastructure with Django, PostgreSQL, and deployed on custom VPS, 
+                                ensuring scalability, reliability, and accessibility for researchers worldwide.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impact Section -->
+    <div class="row mb-5">
+        <div class="col-lg-8 mx-auto">
+            <div class="card bg-gradient" style="background: linear-gradient(135deg, var(--accent-color), var(--secondary-color)); color: white;">
+                <div class="card-body p-5 text-center">
+                    <h2 class="h3 mb-4">
+                        <i class="bi bi-award me-2"></i>Research Impact
+                    </h2>
+                    <p class="lead mb-4">
+                        Supporting high-impact research with potential for publication in leading dental and 
+                        medical journals, advancing the field through evidence-based discoveries.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3">
+                                <i class="bi bi-journal-medical display-6 mb-2"></i>
+                                <h5>High-Impact Publications</h5>
+                                <p class="mb-0 small">Research outcomes published in leading journals</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3">
+                                <i class="bi bi-globe display-6 mb-2"></i>
+                                <h5>Global Collaboration</h5>
+                                <p class="mb-0 small">Facilitating international research partnerships</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="p-3">
+                                <i class="bi bi-heart-pulse display-6 mb-2"></i>
+                                <h5>Clinical Translation</h5>
+                                <p class="mb-0 small">Bridging research evidence to clinical practice</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Section -->
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body p-5 text-center">
+                    <h2 class="h3 mb-4" style="color: var(--primary-color);">
+                        <i class="bi bi-envelope me-2"></i>Get Involved
+                    </h2>
+                    <p class="lead mb-4">
+                        Join our expanding research team and contribute to advancing oral health through 
+                        evidence-based research and innovation.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h5>Research Opportunities</h5>
+                            <p class="small">
+                                We offer positions for Research Assistants, Coordinators, and Postdoctoral Fellows 
+                                with flexible, fully remote work opportunities.
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5>Professional Development</h5>
+                            <p class="small">
+                                Learn state-of-the-art methods in evidence synthesis and gain experience 
+                                in high-impact research publication.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <p class="mb-3">
+                            <strong>Research Collaboration Opportunities:</strong>
+                        </p>
+                        <p class="text-muted mb-4">
+                            For information about research positions, training opportunities, and collaboration 
+                            with the OralEvidence team, please contact through official McMaster University channels.
+                        </p>
+                        <a href="{% url 'api:documentation' %}" class="btn btn-primary btn-lg me-3">
+                            <i class="bi bi-code-slash me-2"></i>Explore API
+                        </a>
+                        <a href="{% url 'papers:pico_search' %}" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-diagram-3 me-2"></i>PICO Search
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

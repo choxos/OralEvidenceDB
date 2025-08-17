@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{% if user.is_authenticated %}{% firstof user.profile.preferred_theme 'light' %}{% else %}{{ request.session.theme|default:'light' }}{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <meta name="description" content="A comprehensive database of oral health research papers with AI-powered PICO extraction, supporting systematic reviews and evidence-based dentistry.">
+    <meta name="keywords" content="oral health, dentistry, dental research, evidence, PICO, systematic review, meta-analysis, PubMed, clinical dentistry">
+    <meta name="author" content="OralEvidenceDB Research Team">
+    <title>{% block title %}OralEvidenceDB{% endblock %}</title>
+    
+    <!-- Favicon and App Icons -->
+    {% load static %}
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'images/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'images/favicon-16x16.png' %}">
+    <link rel="manifest" href="{% static 'images/site.webmanifest' %}">
+    <link rel="shortcut icon" href="{% static 'favicon.ico' %}">
+    <meta name="msapplication-TileColor" content="#1e40af">
+    <meta name="theme-color" content="#1e40af">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Xera Unified Theme -->
+    <link rel="stylesheet" href="https://raw.githubusercontent.com/choxos/xeradb/main/shared_theme/css/xera-unified-theme.css">
+    
+    <!-- OralEvidenceDB Custom Theme -->
+    <link rel="stylesheet" href="{% static 'css/themes/oraldb-theme.css' %}">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root[data-theme="light"] {
+            --primary-color: #1e40af;
+            --secondary-color: #0891b2;
+            --accent-color: #059669;
+            --text-color: #374151;
+            --bg-color: #ffffff;
+            --bg-secondary: #f8fafc;
+            --border-color: #e5e7eb;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --navbar-bg: #ffffff;
+            --card-bg: #ffffff;
+        }
+
+        :root[data-theme="dark"] {
+            --primary-color: #3b82f6;
+            --secondary-color: #06b6d4;
+            --accent-color: #10b981;
+            --text-color: #e5e7eb;
+            --bg-color: #111827;
+            --bg-secondary: #1f2937;
+            --border-color: #374151;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --navbar-bg: #1f2937;
+            --card-bg: #1f2937;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            padding-top: 76px; /* Add space for fixed navbar */
+        }
+
+        .navbar {
+            background-color: var(--navbar-bg) !important;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0.5rem 0;
+            box-shadow: var(--shadow);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--primary-color) !important;
+        }
+
+        .navbar-nav .nav-link {
+            color: var(--text-color) !important;
+            font-weight: 500;
+            margin: 0 0.25rem;
+            padding: 0.5rem 0.75rem !important;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background-color: var(--bg-secondary);
+            color: var(--primary-color) !important;
+        }
+
+        .navbar-nav .nav-link.active {
+            background-color: var(--primary-color);
+            color: white !important;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-control, .form-select {
+            background-color: var(--bg-color);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(30, 64, 175, 0.25);
+        }
+
+        .table {
+            color: var(--text-color);
+        }
+
+        .table-striped > tbody > tr:nth-of-type(odd) > td,
+        .table-striped > tbody > tr:nth-of-type(odd) > th {
+            background-color: var(--bg-secondary);
+        }
+
+        .badge-primary {
+            background-color: var(--primary-color);
+        }
+
+        .badge-success {
+            background-color: var(--accent-color);
+        }
+
+        .text-muted {
+            color: #6b7280 !important;
+        }
+
+        /* Enhanced dark theme text color fixes */
+        [data-theme="dark"] .text-muted {
+            color: #9ca3af !important;
+        }
+
+        [data-theme="dark"] .text-dark {
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .text-black {
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .text-secondary {
+            color: #9ca3af !important;
+        }
+
+        /* Bootstrap component overrides for dark theme */
+        [data-theme="dark"] .dropdown-menu {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .dropdown-item {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .dropdown-item:hover,
+        [data-theme="dark"] .dropdown-item:focus {
+            background-color: var(--bg-secondary);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .alert {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .modal-content {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .modal-header {
+            border-bottom-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .modal-footer {
+            border-top-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .breadcrumb {
+            background-color: var(--bg-secondary);
+        }
+
+        [data-theme="dark"] .breadcrumb-item {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .breadcrumb-item.active {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .list-group-item {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .pagination .page-link {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .pagination .page-item.active .page-link {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* Table improvements for dark theme */
+        [data-theme="dark"] .table-hover tbody tr:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        [data-theme="dark"] .table thead th {
+            border-bottom-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .table td, 
+        [data-theme="dark"] .table th {
+            border-top-color: var(--border-color);
+        }
+
+        /* Form control improvements */
+        [data-theme="dark"] .form-control::placeholder {
+            color: #9ca3af;
+        }
+
+        [data-theme="dark"] .form-label {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .form-text {
+            color: #9ca3af;
+        }
+
+        /* Badge and button improvements */
+        [data-theme="dark"] .badge {
+            background-color: var(--bg-secondary);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .btn-light {
+            background-color: var(--bg-secondary);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .btn-light:hover {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+
+        /* General text overrides for common cases */
+        [data-theme="dark"] h1, [data-theme="dark"] h2, [data-theme="dark"] h3,
+        [data-theme="dark"] h4, [data-theme="dark"] h5, [data-theme="dark"] h6 {
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] p, [data-theme="dark"] span, 
+        [data-theme="dark"] div, [data-theme="dark"] li {
+            color: var(--text-color);
+        }
+
+        /* Links in dark theme */
+        [data-theme="dark"] a {
+            color: var(--secondary-color);
+        }
+
+        [data-theme="dark"] a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Force override for any remaining black text */
+        [data-theme="dark"] * {
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .text-body {
+            color: var(--text-color) !important;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .search-suggestion {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .search-suggestion:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .search-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .theme-toggle {
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .stats-card {
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .pico-element {
+            background-color: var(--bg-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .pico-element h6 {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Results section styling */
+        .results-card {
+            border: 2px solid #e0f2fe;
+            border-radius: 0.75rem;
+            box-shadow: 0 2px 8px rgba(0, 188, 212, 0.1);
+            margin-top: 1rem;
+        }
+        
+        .bg-light-blue {
+            background-color: #e0f7fa !important;
+            border-bottom: 1px solid #b2ebf2;
+        }
+        
+        .bg-light-results {
+            background-color: #f0fdff !important;
+        }
+        
+        [data-theme="dark"] .results-card {
+            border-color: #0f4c75;
+            box-shadow: 0 2px 8px rgba(0, 188, 212, 0.2);
+        }
+        
+        [data-theme="dark"] .bg-light-blue {
+            background-color: #0f3460 !important;
+            border-bottom-color: #1e5a8a;
+            color: #e1f5fe !important;
+        }
+        
+        [data-theme="dark"] .bg-light-results {
+            background-color: #0a2540 !important;
+            color: #e5e7eb !important;
+        }
+
+        /* Floating Theme Toggle */
+        .floating-theme-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: var(--primary-color);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1025;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .floating-theme-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            background: var(--secondary-color);
+        }
+
+        .floating-theme-toggle:active {
+            transform: translateY(0px);
+        }
+
+        /* Dark theme specific colors for floating button */
+        [data-theme="dark"] .floating-theme-toggle {
+            background: var(--accent-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+        }
+
+        [data-theme="dark"] .floating-theme-toggle:hover {
+            background: var(--secondary-color);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.8);
+        }
+
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            .floating-theme-toggle {
+                bottom: 15px;
+                right: 15px;
+                width: 48px;
+                height: 48px;
+                font-size: 1rem;
+            }
+            
+            /* Adjust body padding for mobile */
+            body {
+                padding-top: 70px;
+            }
+            
+            .navbar-collapse {
+                background-color: var(--navbar-bg);
+                border-radius: 0 0 0.5rem 0.5rem;
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                box-shadow: var(--shadow);
+            }
+        }
+
+        .footer {
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-nav {
+                margin-top: 1rem;
+            }
+            
+            .search-form {
+                margin-top: 1rem;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'papers:dashboard' %}">
+                <i class="bi bi-tooth"></i> OralEvidenceDB
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+                           href="{% url 'papers:dashboard' %}">
+                            <i class="bi bi-house"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}" 
+                           href="{% url 'papers:list' %}">
+                            <i class="bi bi-journal-medical"></i> Papers
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'pico_search' %}active{% endif %}" 
+                           href="{% url 'papers:pico_search' %}">
+                            <i class="bi bi-diagram-3"></i> PICO Search
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'retractions_list' %}active{% endif %}" 
+                           href="{% url 'papers:retractions_list' %}">
+                            <i class="bi bi-exclamation-triangle"></i> Retractions
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'api:documentation' %}">
+                            <i class="bi bi-code-slash"></i> API
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'about' %}active{% endif %}" 
+                           href="{% url 'papers:about' %}">
+                            <i class="bi bi-info-circle"></i> About
+                        </a>
+                    </li>
+                    {% if user.is_staff %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'custom_admin:dashboard' %}">
+                            <i class="bi bi-gear"></i> Admin
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                
+                <!-- User Menu -->
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="alert('Bookmarks feature coming soon!')">
+                                <i class="bi bi-bookmark"></i> My Bookmarks
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="toggleTheme()">
+                                <i class="bi bi-moon-stars theme-icon"></i> Toggle Theme
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'custom_admin:logout' %}">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'custom_admin:login' %}">
+                            <i class="bi bi-box-arrow-in-right"></i> Login
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container my-4">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer py-5 mt-5">
+        <div class="container">
+            <div class="row">
+                <!-- Project Information -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-tooth me-2" style="color: var(--primary-color);"></i>
+                        OralEvidenceDB
+                    </h6>
+                    <p class="text-muted mb-3">
+                        A comprehensive database of oral health research papers with AI-powered PICO extraction, 
+                        supporting systematic reviews, meta-analyses, and evidence-based dentistry.
+                    </p>
+                    <div class="d-flex gap-3">
+                        <a href="{% url 'papers:about' %}" class="text-decoration-none text-muted">
+                            <i class="bi bi-info-circle me-1"></i>About
+                        </a>
+                        <a href="{% url 'api:documentation' %}" class="text-decoration-none text-muted">
+                            <i class="bi bi-code-slash me-1"></i>API
+                        </a>
+                        <a href="{% url 'papers:pico_search' %}" class="text-decoration-none text-muted">
+                            <i class="bi bi-diagram-3 me-1"></i>PICO Search
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Research Focus -->
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-search me-2" style="color: var(--primary-color);"></i>
+                        Research Focus
+                    </h6>
+                    <p class="text-muted mb-2">
+                        <strong>Oral Health Research Database</strong><br>
+                        <small>Comprehensive Evidence Collection</small>
+                    </p>
+                    <ul class="list-unstyled text-muted small">
+                        <li class="mb-1">🦷 Dental Caries & Prevention</li>
+                        <li class="mb-1">🦷 Periodontal Disease Research</li>
+                        <li class="mb-1">🦷 Orthodontics & Prosthodontics</li>
+                        <li class="mb-1">🦷 Oral Surgery & Medicine</li>
+                        <li class="mb-1">🦷 Pediatric & Geriatric Dentistry</li>
+                        <li class="mb-1">🦷 Oral Public Health</li>
+                    </ul>
+                </div>
+
+                <!-- Technology & Usage -->
+                <div class="col-lg-4 col-md-12 mb-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="bi bi-gear me-2" style="color: var(--primary-color);"></i>
+                        Technology & Impact
+                    </h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <p class="text-muted small mb-2"><strong>AI Integration</strong></p>
+                            <ul class="list-unstyled text-muted small">
+                                <li>• OpenAI GPT</li>
+                                <li>• Anthropic Claude</li>
+                                <li>• Google Gemini</li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <p class="text-muted small mb-2"><strong>Research Support</strong></p>
+                            <ul class="list-unstyled text-muted small">
+                                <li>• Systematic Reviews</li>
+                                <li>• Meta-Analyses</li>
+                                <li>• Clinical Guidelines</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-heart-pulse me-1"></i>
+                        Advancing evidence-based dentistry worldwide
+                    </p>
+                </div>
+            </div>
+
+            <!-- Bottom Footer -->
+            <hr class="my-4" style="border-color: var(--border-color);">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <p class="text-muted small mb-0">
+                        <i class="bi bi-globe me-1"></i>
+                        <strong>XeraDB Ecosystem</strong> - oral.xeradb.com
+                    </p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted small mb-0">
+                        Built with Django, PostgreSQL &amp; VPS Infrastructure
+                        <span class="mx-2">|</span>
+                        <i class="bi bi-server me-1"></i>
+                        For dental research and clinical practice
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Copyright & Legal -->
+            <div class="row mt-3">
+                <div class="col-12 text-center">
+                    <p class="text-muted small mb-0">
+                        © 2025 OralEvidenceDB - Part of XeraDB Research Suite. 
+                        <span class="mx-2">|</span>
+                        Advancing oral health through evidence synthesis and AI innovation.
+                        <span class="mx-2">|</span>
+                        <a href="https://xeradb.com" target="_blank" class="text-muted">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>XeraDB.com
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        // Theme toggle functionality
+        function toggleTheme() {
+            fetch('{% url "papers:toggle_theme" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.documentElement.setAttribute('data-theme', data.new_theme);
+                    updateThemeIcon(data.new_theme);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        function updateThemeIcon(theme) {
+            // Update navbar theme icon
+            const navIcon = document.querySelector('.theme-icon');
+            if (navIcon) {
+                navIcon.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+            }
+            
+            // Update floating theme icon
+            const floatingIcon = document.querySelector('.floating-theme-icon');
+            if (floatingIcon) {
+                floatingIcon.className = theme === 'dark' ? 'bi bi-sun floating-theme-icon' : 'bi bi-moon-stars floating-theme-icon';
+            }
+        }
+
+        // Search suggestions
+        const searchInput = document.getElementById('search-input');
+        const suggestionsDiv = document.getElementById('search-suggestions');
+        let searchTimeout;
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length < 2) {
+                    suggestionsDiv.classList.add('d-none');
+                    return;
+                }
+                
+                searchTimeout = setTimeout(() => {
+                    fetch(`/search-suggestions/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            showSuggestions(data.suggestions);
+                        })
+                        .catch(error => console.error('Search suggestions error:', error));
+                }, 300);
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!searchInput.contains(event.target) && !suggestionsDiv.contains(event.target)) {
+                    suggestionsDiv.classList.add('d-none');
+                }
+            });
+        }
+
+        function showSuggestions(suggestions) {
+            if (suggestions.length === 0) {
+                suggestionsDiv.classList.add('d-none');
+                return;
+            }
+
+            suggestionsDiv.innerHTML = '';
+            suggestions.forEach(suggestion => {
+                const div = document.createElement('div');
+                div.className = 'search-suggestion';
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>${suggestion.text}</span>
+                        <small class="text-muted">${suggestion.type}</small>
+                    </div>
+                `;
+                div.addEventListener('click', () => {
+                    if (suggestion.url && suggestion.url !== '#') {
+                        window.location.href = suggestion.url;
+                    } else {
+                        searchInput.value = suggestion.text;
+                        suggestionsDiv.classList.add('d-none');
+                    }
+                });
+                suggestionsDiv.appendChild(div);
+            });
+            
+            suggestionsDiv.classList.remove('d-none');
+        }
+
+        // Initialize theme icons
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            updateThemeIcon(currentTheme);
+        });
+
+        // AJAX form helper
+        function submitAjaxForm(formElement, onSuccess, onError) {
+            const formData = new FormData(formElement);
+            
+            fetch(formElement.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success || data.error) {
+                    if (onSuccess && data.success) onSuccess(data);
+                    if (onError && data.error) onError(data);
+                }
+            })
+            .catch(error => {
+                console.error('AJAX error:', error);
+                if (onError) onError({error: 'Network error occurred'});
+            });
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+
+    <!-- Floating Theme Toggle -->
+    <button class="floating-theme-toggle" onclick="toggleTheme()" title="Toggle Dark/Light Theme">
+        <i class="bi bi-moon-stars floating-theme-icon"></i>
+    </button>
+
+</body>
+</html>

@@ -1,0 +1,33 @@
+# Core Django and web framework
+Django==4.2.16
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.6
+django-bootstrap5==25.2
+gunicorn==22.0.0
+whitenoise==6.6.0
+
+# Database
+psycopg2-binary==2.9.9
+dj-database-url==2.1.0
+
+# Configuration
+python-decouple==3.8
+
+# Caching and task queue
+redis==5.0.1
+django-redis==5.4.0
+celery==5.3.4
+
+# LLM APIs
+openai==1.99.9
+anthropic==0.63.0
+google-generativeai==0.8.3
+
+# HTTP requests and data processing
+requests==2.31.0
+
+# Standard packages that might be indirect dependencies
+certifi==2025.7.14
+urllib3==2.2.3
