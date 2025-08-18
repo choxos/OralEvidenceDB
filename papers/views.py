@@ -1,132 +1,173 @@
 """
-Views for the oral health papers application.
-
-This module contains Django views for displaying and managing
-oral health research papers, PICO extractions, and related data.
+Views for the oral health research papers app.
 """
 
+import logging
+from datetime import datetime, timedelta
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
+from django.http import JsonResponse, Http404, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Q, Count, Prefetch, Max, Sum
-from django.http import JsonResponse
-from django.views.generic import ListView, DetailView
+from django.db.models import Q, Count, Avg, Case, When, Value, IntegerField, Prefetch
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
-from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
+from django.views.generic import ListView, DetailView
+from django.urls import reverse
+from django.contrib import messages
+from django.db import transaction
+from django.utils import timezone
 
-from .models import Paper, Author, Journal, PICOExtraction, MeshTerm, DataImportLog
-from .llm_extractors import PICOExtractionService, LLMExtractorFactory
+from .models import (
+    Paper, Author, Journal, MeshTerm, PICOExtraction, 
+    LLMProvider, AuthorPaper, DataImportLog
+)
+
+logger = logging.getLogger(__name__)
+
+
+def dashboard(request):
+    """Dashboard view with oral health research statistics."""
+    try:
+        # Get basic stats
+        stats = {
+            'total_papers': Paper.objects.count(),
+            'papers_with_pico': Paper.objects.filter(pico_extractions__isnull=False).distinct().count(),
+            'total_journals': Journal.objects.count(),
+        }
+        
+        # Add papers with shared datasets count
+        try:
+            papers_with_data = Paper.objects.filter(
+                Q(abstract__icontains='github.com') |
+                Q(abstract__icontains='data available') |
+                Q(abstract__icontains='supplementary') |
+                Q(doi__icontains='figshare') |
+                Q(doi__icontains='zenodo') |
+                Q(doi__icontains='osf.io')
+            ).distinct().count()
+            stats['papers_with_shared_data'] = papers_with_data
+        except:
+            stats['papers_with_shared_data'] = 0
+        
+        # Get recent papers
+        recent_papers = Paper.objects.select_related('journal').order_by('-created_at')[:5]
+        
+        # Get top journals
+        top_journals = Journal.objects.annotate(
+            paper_count=Count('papers')
+        ).filter(paper_count__gt=0).order_by('-paper_count')[:10]
+        
+        # Get papers by year for chart
+        papers_by_year = Paper.objects.filter(
+            publication_year__isnull=False,
+            publication_year__gte=2010
+        ).values('publication_year').annotate(
+            count=Count('pmid')
+        ).order_by('publication_year')
+        
+        context = {
+            'stats': stats,
+            'recent_papers': recent_papers,
+            'top_journals': top_journals,
+            'papers_by_year': papers_by_year,
+        }
+        
+    except Exception as e:
+        logger.error(f"Dashboard error: {e}")
+        context = {
+            'stats': {
+                'total_papers': 0,
+                'papers_with_pico': 0,
+                'total_journals': 0,
+                'papers_with_shared_data': 0,
+            },
+            'recent_papers': [],
+            'top_journals': [],
+            'papers_by_year': [],
+            'error': str(e)
+        }
+    
+    return render(request, 'papers/dashboard.html', context)
 
 
 class PaperListView(ListView):
-    """Comprehensive search interface for oral health papers like an academic indexing website."""
+    """
+    List view for oral health papers with advanced search and filtering capabilities.
+    """
     
     model = Paper
-    template_name = 'papers/search.html'
+    template_name = 'papers/paper_list.html'
     context_object_name = 'papers'
     paginate_by = 20
     
     def get_queryset(self):
-        queryset = Paper.objects.select_related('journal').prefetch_related(
-            'authors',
-            'mesh_terms',
-            'pico_extractions'  # Prefetch PICO data
-        ).annotate(
-            author_count=Count('authors', distinct=True),
-            mesh_count=Count('mesh_terms', distinct=True)
-        )
+        queryset = Paper.objects.select_related('journal').prefetch_related('authors')
         
-        # General search functionality
-        search_query = self.request.GET.get('q', '').strip()
+        # Search functionality
+        search_query = self.request.GET.get('q')
         if search_query:
-            queryset = queryset.filter(
-                Q(title__icontains=search_query) |
-                Q(abstract__icontains=search_query) |
-                Q(authors__first_name__icontains=search_query) |
-                Q(authors__last_name__icontains=search_query) |
-                Q(journal__name__icontains=search_query) |
-                Q(journal__abbreviation__icontains=search_query) |
-                Q(mesh_terms__descriptor_name__icontains=search_query)
-            ).distinct()
+            queryset = self._apply_search_filter(queryset, search_query)
         
-        # Specific field searches
-        title_search = self.request.GET.get('title', '').strip()
-        if title_search:
-            queryset = queryset.filter(title__icontains=title_search)
+        # Advanced filtering
+        queryset = self._apply_advanced_filters(queryset)
         
-        pmid_search = self.request.GET.get('pmid', '').strip()
-        if pmid_search:
-            try:
-                queryset = queryset.filter(pmid=int(pmid_search))
-            except ValueError:
-                queryset = queryset.none()  # Invalid PMID
+        # Ordering
+        order_by = self.request.GET.get('order_by', '-publication_date')
+        if order_by in ['-publication_date', 'publication_date', 'title', '-pmid']:
+            queryset = queryset.order_by(order_by)
+        else:
+            queryset = queryset.order_by('-publication_date')
         
-        pmcid_search = self.request.GET.get('pmcid', '').strip()
-        if pmcid_search:
-            queryset = queryset.filter(pmc__icontains=pmcid_search)
+        return queryset.distinct()
+    
+    def _apply_search_filter(self, queryset, search_query):
+        """Apply text search across multiple fields."""
+        return queryset.filter(
+            Q(title__icontains=search_query) |
+            Q(abstract__icontains=search_query) |
+            Q(authors__first_name__icontains=search_query) |
+            Q(authors__last_name__icontains=search_query) |
+            Q(mesh_terms__descriptor_name__icontains=search_query) |
+            Q(journal__name__icontains=search_query)
+        ).distinct()
+    
+    def _apply_advanced_filters(self, queryset):
+        """Apply various filters based on GET parameters."""
         
-        doi_search = self.request.GET.get('doi', '').strip()
-        if doi_search:
-            queryset = queryset.filter(doi__icontains=doi_search)
-        
-        nct_id_search = self.request.GET.get('nct_id', '').strip()
-        if nct_id_search:
-            try:
-                # Search for papers linked to clinical trials with this NCT ID
-                queryset = queryset.filter(clinical_trials__clinical_trial__nct_id__icontains=nct_id_search)
-            except Exception:
-                # clinical_trials relationship doesn't exist yet (migrations not run)
-                # Return empty queryset to avoid breaking the search
-                queryset = queryset.none()
-        
-        author_search = self.request.GET.get('author', '').strip()
-        if author_search:
-            queryset = self._filter_by_author(queryset, author_search)
-        
-        mesh_search = self.request.GET.get('mesh', '').strip()
-        if mesh_search:
-            queryset = queryset.filter(
-                mesh_terms__descriptor_name__icontains=mesh_search
-            ).distinct()
-        
-        publication_type = self.request.GET.get('publication_type', '').strip()
-        if publication_type:
-            queryset = queryset.filter(publication_types__icontains=publication_type)
-        
-        language = self.request.GET.get('language', '').strip()
-        if language:
-            queryset = queryset.filter(language__icontains=language)
-        
-        # Filter by journal
-        journal_name = self.request.GET.get('journal_name', '').strip()
-        if journal_name:
-            queryset = queryset.filter(
-                Q(journal__name__icontains=journal_name) |
-                Q(journal__abbreviation__icontains=journal_name)
-            )
-            
+        # Journal filter
         journal_id = self.request.GET.get('journal')
         if journal_id:
-            queryset = queryset.filter(journal_id=journal_id)
-        
-        # Date range filters
-        year = self.request.GET.get('year')
-        if year:
-            queryset = queryset.filter(publication_year=year)
-        
-        year_from = self.request.GET.get('year_from')
-        if year_from:
             try:
-                queryset = queryset.filter(publication_year__gte=int(year_from))
+                queryset = queryset.filter(journal__id=int(journal_id))
             except ValueError:
                 pass
         
-        year_to = self.request.GET.get('year_to')
-        if year_to:
+        # Year filter
+        year = self.request.GET.get('year')
+        if year:
             try:
-                queryset = queryset.filter(publication_year__lte=int(year_to))
+                queryset = queryset.filter(publication_year=int(year))
             except ValueError:
+                pass
+        
+        # Filter by shared data availability
+        has_data = self.request.GET.get('has_data')
+        if has_data == 'true':
+            try:
+                # Look for shared data indicators (adapted for oral health)
+                queryset = queryset.filter(
+                    Q(abstract__icontains='github.com') |
+                    Q(abstract__icontains='data available') |
+                    Q(abstract__icontains='supplementary material') |
+                    Q(abstract__icontains='supplemental material') |
+                    Q(abstract__icontains='supporting information') |
+                    Q(doi__icontains='figshare') |
+                    Q(doi__icontains='zenodo') |
+                    Q(doi__icontains='osf.io') |
+                    Q(doi__icontains='dryad')
+                ).distinct()
+            except Exception:
                 pass
         
         # Filter by PICO status
@@ -163,139 +204,70 @@ class PaperListView(ListView):
         has_data = self.request.GET.get('has_data')
         if has_data == 'true':
             try:
-                from .models_shared_data import DatasetPaperLink
-                queryset = queryset.filter(dataset_links__isnull=False).distinct()
-            except ImportError:
-                # Dataset models not available
+                # Look for GitHub repositories or shared data indicators
+                queryset = queryset.filter(
+                    Q(abstract__icontains='github.com') |
+                    Q(abstract__icontains='data available') |
+                    Q(abstract__icontains='supplementary material') |
+                    Q(abstract__icontains='supplemental material') |
+                    Q(abstract__icontains='supporting information') |
+                    Q(doi__icontains='figshare') |
+                    Q(doi__icontains='zenodo') |
+                    Q(doi__icontains='osf.io') |
+                    Q(doi__icontains='dryad')
+                ).distinct()
+            except Exception:
                 pass
         elif has_data == 'false':
             try:
-                from .models_shared_data import DatasetPaperLink
-                queryset = queryset.filter(dataset_links__isnull=True)
-            except ImportError:
-                # Dataset models not available
+                # Exclude papers with shared data indicators
+                queryset = queryset.exclude(
+                    Q(abstract__icontains='github.com') |
+                    Q(abstract__icontains='data available') |
+                    Q(abstract__icontains='supplementary material') |
+                    Q(abstract__icontains='supplemental material') |
+                    Q(abstract__icontains='supporting information') |
+                    Q(doi__icontains='figshare') |
+                    Q(doi__icontains='zenodo') |
+                    Q(doi__icontains='osf.io') |
+                    Q(doi__icontains='dryad')
+                )
+            except Exception:
                 pass
         
-        # Filter by retraction status
-        retraction_status = self.request.GET.get('retraction_status')
-        if retraction_status == 'retracted':
-            # Filter for papers that have retraction records
-            from .models_retraction import RetractedPaper
-            retracted_pmids = RetractedPaper.objects.values_list('original_pubmed_id', flat=True)
-            queryset = queryset.filter(pmid__in=retracted_pmids)
-        elif retraction_status == 'not_retracted':
-            # Filter for papers that do NOT have retraction records
-            from .models_retraction import RetractedPaper
-            retracted_pmids = RetractedPaper.objects.values_list('original_pubmed_id', flat=True)
-            queryset = queryset.exclude(pmid__in=retracted_pmids)
-        
-        # Study type filter (using new study type classifications)
-        study_type = self.request.GET.get('study_type')
-        if study_type:
-            # Filter papers where the study_type_classifications JSONField contains the selected study type
-            queryset = queryset.filter(
-                Q(study_type_classifications__isnull=False) &
-                Q(study_type_classifications__regex=rf'"classification":\s*"{study_type}"')
-            )
-        
-        # Ordering
-        order_by = self.request.GET.get('order_by', '-publication_date')
-        valid_orders = ['-publication_date', 'publication_date', '-pmid', 'pmid', 'title', '-title', 'journal__name']
-        if order_by in valid_orders:
-            queryset = queryset.order_by(order_by)
-        
-        return queryset.distinct()
+        return queryset
     
     def _filter_by_author(self, queryset, author_search):
-        """Enhanced author search that handles full names, initials, and partial matches."""
-        import re
+        """Filter papers by author name with flexible matching."""
         
-        # Clean the search term
-        author_search = author_search.strip()
+        # Handle different author search formats
+        author_parts = author_search.strip().split()
         
-        # Split the search term into parts
-        name_parts = re.split(r'[\s,]+', author_search)
-        name_parts = [part.strip() for part in name_parts if part.strip()]
-        
-        if not name_parts:
-            return queryset
-        
-        # Priority-based search strategies (from most specific to least)
-        author_query = Q()
-        
-        if len(name_parts) == 1:
-            # Single name - could be first or last name
-            single_name = name_parts[0]
-            if len(single_name) == 1:
-                # Single letter - treat as initial
-                author_query = (
-                    Q(authors__first_name__istartswith=single_name) |
-                    Q(authors__last_name__istartswith=single_name) |
-                    Q(authors__middle_initials__icontains=single_name)
-                )
-            else:
-                # Full word - search first and last names
-                author_query = (
-                    Q(authors__first_name__icontains=single_name) |
-                    Q(authors__last_name__icontains=single_name)
-                )
-        
-        elif len(name_parts) == 2:
-            first_part, second_part = name_parts[0], name_parts[1]
-            
-            # Strategy 1: Exact first + last name match (highest priority)
-            author_query |= Q(authors__first_name__iexact=first_part) & Q(authors__last_name__iexact=second_part)
-            
-            # Strategy 2: Case-insensitive exact matches
-            author_query |= Q(authors__first_name__iexact=first_part) & Q(authors__last_name__iexact=second_part)
-            
-            # Strategy 3: Handle initials + last name (e.g., "S Park" or "Park S")
-            if len(first_part) == 1:
-                # First initial + last name: "S Park"
-                author_query |= Q(authors__first_name__istartswith=first_part) & Q(authors__last_name__iexact=second_part)
-            elif len(second_part) == 1:
-                # Last name + first initial: "Park S"
-                author_query |= Q(authors__last_name__iexact=first_part) & Q(authors__first_name__istartswith=second_part)
-            
-            # Strategy 4: Partial matches (only if parts are substantial)
-            if len(first_part) > 2 and len(second_part) > 2:
-                author_query |= Q(authors__first_name__icontains=first_part) & Q(authors__last_name__icontains=second_part)
-        
-        elif len(name_parts) == 3:
-            first_part, middle_part, last_part = name_parts[0], name_parts[1], name_parts[2]
-            
-            # Strategy 1: First + Middle + Last
-            author_query |= (
-                Q(authors__first_name__iexact=first_part) &
-                Q(authors__middle_initials__icontains=middle_part.replace('.', '')) &
-                Q(authors__last_name__iexact=last_part)
+        if len(author_parts) == 1:
+            # Single term - could be first name, last name, or partial name
+            term = author_parts[0]
+            author_query = (
+                Q(first_name__icontains=term) |
+                Q(last_name__icontains=term) |
+                Q(initials__icontains=term)
             )
-            
-            # Strategy 2: First + Last (ignore middle)
-            author_query |= Q(authors__first_name__iexact=first_part) & Q(authors__last_name__iexact=last_part)
-            
-            # Strategy 3: Partial matches for substantial names
-            if all(len(part) > 2 for part in [first_part, last_part]):
-                author_query |= Q(authors__first_name__icontains=first_part) & Q(authors__last_name__icontains=last_part)
-        
+        elif len(author_parts) == 2:
+            # Two terms - likely first and last name
+            first, last = author_parts
+            author_query = (
+                Q(first_name__icontains=first, last_name__icontains=last) |
+                Q(first_name__icontains=last, last_name__icontains=first) |  # Reverse order
+                Q(last_name__icontains=f"{last}, {first}") |  # "Last, First" format
+                Q(initials__icontains=first, last_name__icontains=last)
+            )
         else:
-            # Handle more complex names (4+ parts)
-            # Assume first part is first name, last part is last name
-            first_name = name_parts[0]
-            last_name = name_parts[-1]
-            middle_parts = name_parts[1:-1]
-            
-            # Exact match for first and last
-            author_query |= Q(authors__first_name__iexact=first_name) & Q(authors__last_name__iexact=last_name)
-            
-            # Include middle initials if present
-            for middle in middle_parts:
-                if middle and len(middle) <= 3:
-                    author_query |= (
-                        Q(authors__first_name__iexact=first_name) &
-                        Q(authors__last_name__iexact=last_name) &
-                        Q(authors__middle_initials__icontains=middle.replace('.', ''))
-                    )
+            # Multiple terms - combine all
+            combined = " ".join(author_parts)
+            author_query = (
+                Q(first_name__icontains=combined) |
+                Q(last_name__icontains=combined) |
+                Q(initials__icontains=combined)
+            )
         
         return queryset.filter(author_query).distinct()
     
@@ -338,106 +310,7 @@ class PaperListView(ListView):
         # Calculate search statistics (avoid double query execution)
         total_papers = Paper.objects.count()
         context['total_papers'] = total_papers
-        context['filtered_count'] = context['paginator'].count if hasattr(context, 'paginator') else 0
-        context['has_active_filters'] = bool(any(self.request.GET.values()))
-        
-        # Add hierarchical study type options from our enhanced classifier
-        from .study_type_classifier import StudyClassification
-        
-        # Define categories and their study types for oral health research
-        study_type_categories = {
-            'Observational Studies': [
-                'cohort_study',
-                'case_control_study', 
-                'cross_sectional_study',
-                'target_trial_emulation',
-                'case_series'
-            ],
-            'Interventional Studies': [
-                'clinical_trial',  # Meta-category for all clinical trials
-                'pilot_study',
-                'single_arm_trial'
-            ],
-            'Evidence Synthesis': [
-                'systematic_review',
-                'meta_analysis',
-                'network_meta_analysis',
-                'matching_adjusted_indirect_comparison',
-                'simulated_treatment_comparison',
-                'multilevel_network_meta_regression'
-            ],
-            'Other Study Types': [
-                'animal_studies',
-                'economic_evaluations', 
-                'guidelines',
-                'patient_perspectives',
-                'qualitative_studies',
-                'surveys_questionnaires'
-            ]
-        }
-        
-        # Clinical trial sub-types for hierarchical selection
-        clinical_trial_subtypes = [
-            {'value': 'randomized_controlled_trial', 'label': 'Randomized Controlled Trial (RCT)', 'group': 'randomization'},
-            {'value': 'controlled_clinical_trial', 'label': 'Controlled Clinical Trial (CCT)', 'group': 'randomization'},
-            {'value': 'placebo_controlled_rct', 'label': 'Placebo-Controlled', 'group': 'control'},
-            {'value': 'single_blind_rct', 'label': 'Single-Blind', 'group': 'blinding'},
-            {'value': 'double_blind_rct', 'label': 'Double-Blind', 'group': 'blinding'},
-            {'value': 'triple_blind_rct', 'label': 'Triple-Blind', 'group': 'blinding'},
-            {'value': 'open_label_rct', 'label': 'Open-Label', 'group': 'blinding'}
-        ]
-        
-        def get_human_readable_label(value):
-            """Convert classification value to human-readable label"""
-            label = value.replace('_', ' ').title()
-            # Fix specific capitalization
-            replacements = {
-                'Rct': 'RCT', 'Cct': 'CCT', 'Meta Analysis': 'Meta-Analysis', 
-                'Network Meta Analysis': 'Network Meta-Analysis',
-                'Multilevel Network Meta Regression': 'Multilevel Network Meta-Regression',
-                'Maic': 'MAIC', 'Stc': 'STC', 'Mlnmr': 'MLNMR', 'Pico': 'PICO'
-            }
-            for old, new in replacements.items():
-                label = label.replace(old, new)
-            return label
-        
-        # Build categorized options
-        categorized_options = []
-        for category, study_types in study_type_categories.items():
-            category_options = []
-            for study_type in study_types:
-                if study_type == 'clinical_trial':
-                    # Special handling for clinical trial meta-category
-                    category_options.append({
-                        'value': 'clinical_trial',
-                        'label': 'Clinical Trial'
-                    })
-                else:
-                    # Check if this study type exists in our classifier
-                    try:
-                        from .study_type_classifier import StudyClassification
-                        for classification in StudyClassification:
-                            if classification.value == study_type:
-                                category_options.append({
-                                    'value': study_type,
-                                    'label': get_human_readable_label(study_type)
-                                })
-                                break
-                    except ImportError:
-                        # Fallback if classifier is not available
-                        category_options.append({
-                            'value': study_type,
-                            'label': get_human_readable_label(study_type)
-                        })
-            
-            if category_options:  # Only add categories that have options
-                categorized_options.append({
-                    'category': category,
-                    'options': category_options
-                })
-        
-        context['study_type_categories'] = categorized_options
-        context['clinical_trial_subtypes'] = clinical_trial_subtypes
+        context['filtered_count'] = context['paginator'].count if context['paginator'] else 0
         
         return context
 
@@ -493,282 +366,80 @@ class PaperDetailView(DetailView):
         
         # Shared Datasets and GitHub Repositories
         try:
-            from .models import DatasetPaperLink, SharedDataset
-            dataset_links = DatasetPaperLink.objects.filter(
-                paper_id=self.object.pmid
-            ).select_related(
-                'dataset', 'dataset__repository'
-            ).filter(
-                confidence_score__gt=0.3  # Only show confident matches
-            ).order_by('-confidence_score', '-created_at')[:10]  # Show top 10
+            # Extract GitHub URLs and DOIs from abstract and full text
+            import re
             
-            if dataset_links:
-                associated_data['shared_datasets']['count'] = dataset_links.count()
-                associated_data['shared_datasets']['items'] = []
-                
-                for link in dataset_links:
-                    dataset_item = {
-                        'title': link.dataset.title or 'Untitled Dataset',
-                        'url': link.dataset.url,
-                        'repository': link.dataset.repository.display_name if link.dataset.repository else 'Unknown',
-                        'repository_name': link.dataset.repository.name if link.dataset.repository else 'unknown',
-                        'confidence': link.confidence_score,
-                        'link_type': link.link_type.replace('_', ' ').title(),
-                        'access_status': getattr(link.dataset, 'access_status', 'unknown'),
-                        'license': getattr(link.dataset, 'license', None),
-                        'resource_type': getattr(link.dataset, 'resource_type', None),
-                        'file_count': getattr(link.dataset, 'file_count', None),
-                        'storage_size': getattr(link.dataset, 'storage_size', None)
-                    }
-                    associated_data['shared_datasets']['items'].append(dataset_item)
+            text_to_search = f"{self.object.abstract or ''} {self.object.title or ''}"
+            
+            # GitHub repository pattern
+            github_pattern = r'github\.com/[\w.-]+/[\w.-]+'
+            github_matches = re.findall(github_pattern, text_to_search, re.IGNORECASE)
+            
+            # Data repository patterns (Figshare, Zenodo, OSF, etc.)
+            data_patterns = [
+                (r'figshare\.com/\S+', 'Figshare'),
+                (r'zenodo\.org/\S+', 'Zenodo'),
+                (r'osf\.io/\S+', 'OSF'),
+                (r'dryad\.org/\S+', 'Dryad')
+            ]
+            
+            datasets = []
+            
+            # Add GitHub repositories
+            for github_url in github_matches[:3]:  # Limit to first 3
+                datasets.append({
+                    'title': f"GitHub Repository: {github_url.split('/')[-1]}",
+                    'url': f"https://{github_url}",
+                    'description': "Code repository",
+                    'type': 'github'
+                })
+            
+            # Add data repositories
+            for pattern, repo_type in data_patterns:
+                matches = re.findall(pattern, text_to_search, re.IGNORECASE)
+                for match in matches[:2]:  # Limit each type
+                    datasets.append({
+                        'title': f"{repo_type} Dataset",
+                        'url': match if match.startswith('http') else f"https://{match}",
+                        'description': f"Dataset hosted on {repo_type}",
+                        'type': repo_type.lower()
+                    })
+            
+            associated_data['shared_datasets'] = {
+                'count': len(datasets),
+                'items': datasets
+            }
         except Exception as e:
-            # Dataset relationship doesn't exist or other error
-            pass
+            logger.error(f"Error extracting associated data: {e}")
+
         
         context['associated_data'] = associated_data
         
         return context
 
 
-def dashboard(request):
-    """Dashboard view with statistics and recent activity for oral health research."""
-    from django.core.cache import cache
-    from .models_retraction import RetractedPaper
-    
-    # Cache expensive statistics for 5 minutes
-    stats = None
-    try:
-        stats = cache.get('dashboard_stats')
-    except Exception:
-        # Cache is not available, continue without caching
-        pass
-        
-    if stats is None:
-        # Use efficient aggregate queries instead of counting all rows
-        stats = {
-            'total_papers': Paper.objects.count(),
-            'papers_with_pico': Paper.objects.filter(pico_extractions__isnull=False).distinct().count(),
-            'total_journals': Journal.objects.count(),
-        }
-        
-        # Add papers with shared datasets count
-        try:
-            from .models_shared_data import DatasetPaperLink
-            stats['papers_with_datasets'] = Paper.objects.filter(
-                dataset_links__isnull=False
-            ).distinct().count()
-        except ImportError:
-            # Dataset models not available
-            stats['papers_with_datasets'] = 0
-        
-        # More efficient retraction count using subquery
-        retracted_count = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).count()
-        stats['retracted_papers'] = retracted_count
-        
-        try:
-            cache.set('dashboard_stats', stats, 300)  # Cache for 5 minutes
-        except Exception:
-            # Cache set failed, continue without caching
-            pass
-    
-    # Recent papers with optimized query
-    recent_papers = Paper.objects.select_related('journal').prefetch_related(
-        'pico_extractions'
-    ).order_by('-created_at')[:10]
-    
-    # Recent PICO papers with optimized query and limited joins
-    recent_pico_papers = Paper.objects.filter(
-        pico_extractions__isnull=False
-    ).select_related('journal').prefetch_related(
-        Prefetch('pico_extractions', 
-                queryset=PICOExtraction.objects.select_related('llm_provider').order_by('-extracted_at'))
-    ).annotate(
-        latest_pico_date=Max('pico_extractions__extracted_at'),
-        pico_count=Count('pico_extractions', distinct=True)
-    ).distinct().order_by('-latest_pico_date')[:10]
-    
-    # Add recent retractions only if there are any
-    recent_retractions = None
-    if stats['retracted_papers'] > 0:
-        recent_retractions = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).order_by('-retraction_date')[:6]  # Limit to 6 most recent
-    
-    context = {
-        'stats': stats,
-        'recent_papers': recent_papers,
-        'recent_pico_papers': recent_pico_papers,
-        'recent_retractions': recent_retractions,
-    }
-    
-    return render(request, 'papers/dashboard.html', context)
-
-
-@login_required
-def bookmark_paper(request, pmid):
-    """Toggle bookmark status for a paper."""
-    if request.method == 'POST':
-        paper = get_object_or_404(Paper, pmid=pmid)
-        
-        try:
-            profile = request.user.profile
-        except:
-            from .models import UserProfile
-            profile = UserProfile.objects.create(user=request.user)
-        
-        if profile.bookmarked_papers.filter(pmid=pmid).exists():
-            profile.bookmarked_papers.remove(paper)
-            is_bookmarked = False
-            message = "Paper removed from bookmarks"
-        else:
-            profile.bookmarked_papers.add(paper)
-            is_bookmarked = True
-            message = "Paper added to bookmarks"
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'is_bookmarked': is_bookmarked,
-                'message': message
-            })
-        else:
-            messages.success(request, message)
-            return redirect('papers:detail', pmid=pmid)
-    
-    return redirect('papers:detail', pmid=pmid)
-
-
-@csrf_exempt
-def extract_pico_ajax(request, pmid):
-    """AJAX endpoint for extracting PICO elements from oral health papers."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-    
-    paper = get_object_or_404(Paper, pmid=pmid)
-    
-    if not paper.abstract:
-        return JsonResponse({'error': 'Paper has no abstract'}, status=400)
-    
-    try:
-        service = PICOExtractionService()
-        pico_extractions = service.extract_pico_for_paper(paper)
-        
-        # Format multiple PICO extractions for response
-        pico_list = []
-        for pico_extraction in pico_extractions:
-            pico_list.append({
-                'population': pico_extraction.population,
-                'intervention': pico_extraction.intervention,
-                'comparison': pico_extraction.comparison,
-                'outcome': pico_extraction.outcome,
-                'results': pico_extraction.results,
-                'setting': pico_extraction.setting,
-                'study_type': pico_extraction.study_type,
-                'timeframe': pico_extraction.timeframe,
-                'study_design': pico_extraction.study_design,
-                'confidence': pico_extraction.extraction_confidence,
-                'llm_provider': pico_extraction.llm_provider.display_name if pico_extraction.llm_provider else None,
-            })
-        
-        return JsonResponse({
-            'success': True,
-            'pico_count': len(pico_extractions),
-            'pico_extractions': pico_list
-        })
-    
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
-
-def search_suggestions(request):
-    """AJAX endpoint for search suggestions."""
-    query = request.GET.get('q', '').strip()
-    
-    if len(query) < 2:
-        return JsonResponse({'suggestions': []})
-    
-    suggestions = []
-    
-    # Paper titles
-    paper_titles = Paper.objects.filter(
-        title__icontains=query
-    ).values_list('title', 'pmid')[:5]
-    
-    for title, pmid in paper_titles:
-        suggestions.append({
-            'type': 'paper',
-            'text': title[:100] + '...' if len(title) > 100 else title,
-            'url': f'/papers/{pmid}/'
-        })
-    
-    # Authors
-    authors = Author.objects.filter(
-        Q(first_name__icontains=query) | Q(last_name__icontains=query)
-    ).distinct()[:5]
-    
-    for author in authors:
-        suggestions.append({
-            'type': 'author',
-            'text': author.full_name,
-            'url': f'/papers/?search={author.full_name}'
-        })
-    
-    # Journals
-    journals = Journal.objects.filter(
-        name__icontains=query
-    )[:5]
-    
-    for journal in journals:
-        suggestions.append({
-            'type': 'journal',
-            'text': journal.name,
-            'url': f'/papers/?journal={journal.id}'
-        })
-    
-    # MeSH terms
-    mesh_terms = MeshTerm.objects.filter(
-        descriptor_name__icontains=query
-    )[:5]
-    
-    for mesh in mesh_terms:
-        suggestions.append({
-            'type': 'mesh',
-            'text': mesh.descriptor_name,
-            'url': f'/papers/?search={mesh.descriptor_name}'
-        })
-    
-    return JsonResponse({'suggestions': suggestions})
-
-
 class PICOSearchView(ListView):
-    """Comprehensive PICO search view for oral health researchers - grouped by paper."""
+    """Advanced PICO-based search interface."""
     
     model = Paper
     template_name = 'papers/pico_search.html'
-    context_object_name = 'papers_with_picos'
-    paginate_by = 20
+    context_object_name = 'papers'
+    paginate_by = 10
     
     def get_queryset(self):
-        # Start with PICO filtering
+        """Filter papers based on PICO criteria."""
+        
+        # Start with papers that have PICO extractions
+        queryset = Paper.objects.filter(
+            pico_extractions__isnull=False
+        ).select_related('journal').prefetch_related(
+            'pico_extractions__llm_provider', 'authors'
+        ).distinct()
+        
+        # Build PICO filters
         pico_filters = Q()
         
-        # General search across all PICO elements
-        search = self.request.GET.get('search')
-        if search:
-            pico_filters &= Q(
-                Q(pico_extractions__population__icontains=search) |
-                Q(pico_extractions__intervention__icontains=search) |
-                Q(pico_extractions__comparison__icontains=search) |
-                Q(pico_extractions__outcome__icontains=search) |
-                Q(pico_extractions__setting__icontains=search) |
-                Q(pico_extractions__timeframe__icontains=search) |
-                Q(title__icontains=search) |
-                Q(abstract__icontains=search)
-            )
-        
-        # Specific PICO element searches
+        # Population filter
         population = self.request.GET.get('population')
         if population:
             pico_filters &= Q(pico_extractions__population__icontains=population)
@@ -808,70 +479,41 @@ class PICOSearchView(ListView):
         if year:
             pico_filters &= Q(publication_year=year)
         
-        # Journal filter
-        journal = self.request.GET.get('journal')
-        if journal:
-            pico_filters &= Q(journal_id=journal)
+        # Apply filters
+        if pico_filters:
+            queryset = queryset.filter(pico_filters)
         
-        # Get papers that match the PICO filters
-        queryset = Paper.objects.filter(
-            pico_extractions__isnull=False
-        ).filter(pico_filters).select_related('journal').prefetch_related(
-            'pico_extractions__llm_provider'
-        ).annotate(
-            latest_pico_date=Max('pico_extractions__extracted_at'),
-            pico_count=Count('pico_extractions', distinct=True)
-        ).distinct().order_by('-latest_pico_date')
-        
-        return queryset
+        # Order by relevance (papers with more recent PICO extractions first)
+        return queryset.order_by('-pico_extractions__extracted_at', '-publication_date')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        
+        # Get available filter options from existing PICO extractions
         from django.core.cache import cache
         
-        # Add filter options for the template
-        context['study_types'] = PICOExtraction.STUDY_TYPE_CHOICES
-        
-        # Safe cache handling with fallbacks
-        def safe_cache_get_set(key, query_func, timeout=600):
-            try:
-                value = cache.get(key)
-                if value is None:
-                    value = query_func()
-                    cache.set(key, value, timeout)
-                return value
-            except Exception:
-                # Cache is not available, just run the query
-                return query_func()
-        
-        # Cache expensive filter queries for 10 minutes
-        context['llm_providers'] = safe_cache_get_set(
-            'pico_llm_providers',
-            lambda: list(PICOExtraction.objects.values_list(
-                'llm_provider__name', flat=True
-            ).distinct().order_by('llm_provider__name'))
+        # Cache expensive queries for filter options
+        context['filter_options'] = cache.get_or_set(
+            'pico_filter_options',
+            self._get_filter_options,
+            timeout=300  # 5 minutes
         )
         
-        # Cache years for PICO papers
-        context['years'] = safe_cache_get_set(
-            'pico_years',
-            lambda: list(Paper.objects.filter(
-                pico_extractions__isnull=False
-            ).values_list(
-                'publication_year', flat=True
-            ).distinct().order_by('-publication_year')[:20])
-        )
+        # Add current search parameters
+        context['current_filters'] = {
+            'population': self.request.GET.get('population', ''),
+            'intervention': self.request.GET.get('intervention', ''),
+            'comparison': self.request.GET.get('comparison', ''),
+            'outcome': self.request.GET.get('outcome', ''),
+            'setting': self.request.GET.get('setting', ''),
+            'timeframe': self.request.GET.get('timeframe', ''),
+            'study_type': self.request.GET.get('study_type', ''),
+            'llm_provider': self.request.GET.get('llm_provider', ''),
+            'year': self.request.GET.get('year', ''),
+        }
         
-        # Cache journals with PICO data
-        context['journals'] = safe_cache_get_set(
-            'pico_journals',
-            lambda: list(Journal.objects.filter(
-                papers__pico_extractions__isnull=False
-            ).distinct().order_by('name')[:50])
-        )
-        
-        # Cache basic statistics
-        pico_stats = safe_cache_get_set(
+        # Add summary statistics
+        context['stats'] = cache.get_or_set(
             'pico_basic_stats',
             lambda: {
                 'total_papers_with_pico': Paper.objects.filter(pico_extractions__isnull=False).distinct().count(),
@@ -879,38 +521,199 @@ class PICOSearchView(ListView):
             },
             timeout=300  # 5 minutes
         )
-        
-        context['total_papers_with_pico'] = pico_stats['total_papers_with_pico']
-        context['total_picos'] = pico_stats['total_picos']
-        
-        # Only calculate filtered counts if we have filters (expensive operation)
-        if self.request.GET:
-            context['filtered_count'] = context['paginator'].count if hasattr(context, 'paginator') else 0
-            # Approximate PICO count to avoid expensive sum operation
-            context['filtered_pico_count'] = context['filtered_count'] * 1.2  # Estimate 1.2 PICOs per paper
-        else:
-            context['filtered_count'] = pico_stats['total_papers_with_pico']
-            context['filtered_pico_count'] = pico_stats['total_picos']
-        
-        context['has_filters'] = bool(self.request.GET)
-        
-        # Cache popular study types
-        context['popular_study_types'] = safe_cache_get_set(
-            'popular_study_types',
-            lambda: list(PICOExtraction.objects.values(
-                'study_type'
-            ).annotate(count=Count('id')).order_by('-count')[:10])
-        )
-        
+
         return context
+    
+    def _get_filter_options(self):
+        """Get available values for PICO filter dropdowns."""
+        
+        # Get common PICO terms from existing extractions
+        pico_data = PICOExtraction.objects.values_list(
+            'population', 'intervention', 'comparison', 'outcome',
+            'setting', 'timeframe', 'study_type'
+        ).distinct()
+        
+        # Extract and clean unique terms
+        populations = set()
+        interventions = set()
+        comparisons = set()
+        outcomes = set()
+        settings = set()
+        timeframes = set()
+        study_types = set()
+        
+        for p, i, c, o, s, t, st in pico_data:
+            if p: populations.update(term.strip() for term in p.split(',')[:3])  # Limit splits
+            if i: interventions.update(term.strip() for term in i.split(',')[:3])
+            if c: comparisons.update(term.strip() for term in c.split(',')[:3])
+            if o: outcomes.update(term.strip() for term in o.split(',')[:3])
+            if s: settings.update(term.strip() for term in s.split(',')[:3])
+            if t: timeframes.update(term.strip() for term in t.split(',')[:3])
+            if st: study_types.add(st.strip())
+        
+        return {
+            'populations': sorted([p for p in populations if len(p) > 2])[:50],
+            'interventions': sorted([i for i in interventions if len(i) > 2])[:50],
+            'comparisons': sorted([c for c in comparisons if len(c) > 2])[:50],
+            'outcomes': sorted([o for o in outcomes if len(o) > 2])[:50],
+            'settings': sorted([s for s in settings if len(s) > 2])[:20],
+            'timeframes': sorted([t for t in timeframes if len(t) > 2])[:20],
+            'study_types': sorted(study_types)[:20],
+            'llm_providers': list(LLMProvider.objects.values_list('name', flat=True)),
+            'years': list(Paper.objects.filter(
+                pico_extractions__isnull=False
+            ).values_list('publication_year', flat=True).distinct().order_by('-publication_year'))
+        }
 
 
+@require_POST
 @csrf_exempt
+def extract_pico_ajax(request, pmid):
+    """AJAX endpoint for PICO extraction."""
+    try:
+        paper = get_object_or_404(Paper, pmid=pmid)
+        
+        if not paper.abstract:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'No abstract available for PICO extraction'
+            })
+        
+        # Import here to avoid circular imports
+        from .llm_extractors import extract_pico_from_abstract
+        
+        # Extract PICO using LLM
+        pico_data = extract_pico_from_abstract(paper)
+        
+        if pico_data:
+            return JsonResponse({
+                'status': 'success',
+                'message': 'PICO extracted successfully',
+                'pico_data': pico_data
+            })
+        else:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Failed to extract PICO elements'
+            })
+            
+    except Exception as e:
+        logger.error(f"PICO extraction error for paper {pmid}: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Error during PICO extraction: {str(e)}'
+        })
+
+
+@login_required
+@require_POST
+def bookmark_paper(request, pmid):
+    """Toggle bookmark status for a paper."""
+    try:
+        paper = get_object_or_404(Paper, pmid=pmid)
+        
+        # Get or create user profile
+        profile, created = request.user.profile, False
+        try:
+            profile = request.user.profile
+        except:
+            from .models import UserProfile
+            profile = UserProfile.objects.create(user=request.user)
+        
+        # Toggle bookmark
+        if profile.bookmarked_papers.filter(pmid=pmid).exists():
+            profile.bookmarked_papers.remove(paper)
+            bookmarked = False
+            message = "Bookmark removed"
+        else:
+            profile.bookmarked_papers.add(paper)
+            bookmarked = True
+            message = "Paper bookmarked"
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'bookmarked': bookmarked,
+                'message': message
+            })
+        else:
+            messages.success(request, message)
+            return redirect('papers:detail', pmid=pmid)
+            
+    except Exception as e:
+        logger.error(f"Bookmark error: {str(e)}")
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'message': 'Error updating bookmark'
+            })
+        else:
+            messages.error(request, "Error updating bookmark")
+            return redirect('papers:detail', pmid=pmid)
+
+
+def search_suggestions(request):
+    """AJAX endpoint for search suggestions."""
+    query = request.GET.get('q', '').strip()
+    
+    if len(query) < 3:
+        return JsonResponse({'suggestions': []})
+    
+    try:
+        # Get paper title suggestions
+        paper_titles = Paper.objects.filter(
+            title__icontains=query
+        ).values_list('title', flat=True)[:5]
+        
+        # Get author suggestions
+        author_names = Author.objects.filter(
+            Q(first_name__icontains=query) | Q(last_name__icontains=query)
+        ).values_list('last_name', 'first_name')[:5]
+        
+        # Get MeSH term suggestions
+        mesh_terms = MeshTerm.objects.filter(
+            descriptor_name__icontains=query
+        ).values_list('descriptor_name', flat=True)[:5]
+        
+        suggestions = []
+        
+        # Add paper title suggestions
+        for title in paper_titles:
+            suggestions.append({
+                'type': 'title',
+                'text': title[:100],
+                'category': 'Papers'
+            })
+        
+        # Add author suggestions
+        for last_name, first_name in author_names:
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                suggestions.append({
+                    'type': 'author',
+                    'text': full_name,
+                    'category': 'Authors'
+                })
+        
+        # Add MeSH term suggestions
+        for term in mesh_terms:
+            suggestions.append({
+                'type': 'mesh',
+                'text': term,
+                'category': 'MeSH Terms'
+            })
+        
+        return JsonResponse({'suggestions': suggestions[:15]})
+        
+    except Exception as e:
+        logger.error(f"Search suggestions error: {str(e)}")
+        return JsonResponse({'suggestions': []})
+
+
 def toggle_theme(request):
-    """Toggle user's theme preference."""
+    """Toggle between light and dark themes."""
     if request.method == 'POST':
         if request.user.is_authenticated:
-            # For logged-in users, save to profile
             try:
                 profile = request.user.profile
                 current_theme = profile.preferred_theme
@@ -944,74 +747,85 @@ def about(request):
 
 
 class RetractionsListView(ListView):
-    """List view for retracted oral health papers."""
+    """List view for retracted papers with filtering and search."""
     
-    model = None  # We'll override get_queryset instead
     template_name = 'papers/retractions_list.html'
-    context_object_name = 'retractions'
+    context_object_name = 'retracted_papers'
     paginate_by = 20
     
     def get_queryset(self):
-        from .models_retraction import RetractedPaper
-        
-        # Start with all retractions that have matching papers in our database
-        queryset = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).order_by('-retraction_date')
-        
-        # Add search filter
-        search = self.request.GET.get('search')
-        if search:
-            queryset = queryset.filter(
-                Q(original_title__icontains=search) |
-                Q(journal__icontains=search) |
-                Q(authors__icontains=search) |
-                Q(reason__icontains=search)
-            )
-        
-        # Add journal filter
-        journal = self.request.GET.get('journal')
-        if journal:
-            queryset = queryset.filter(journal__icontains=journal)
-        
-        # Add year filter
-        year = self.request.GET.get('year')
-        if year:
-            queryset = queryset.filter(retraction_date__year=year)
-        
-        # Add retraction nature filter
-        nature = self.request.GET.get('nature')
-        if nature:
-            queryset = queryset.filter(retraction_nature=nature)
-        
-        return queryset
+        try:
+            from .models_retraction import RetractedPaper
+            
+            # Base queryset
+            queryset = RetractedPaper.objects.all().order_by('-retraction_date')
+            
+            # Search functionality
+            search_query = self.request.GET.get('q', '').strip()
+            if search_query:
+                queryset = queryset.filter(
+                    Q(title__icontains=search_query) |
+                    Q(authors__icontains=search_query) |
+                    Q(journal__icontains=search_query) |
+                    Q(reason__icontains=search_query)
+                )
+            
+            # Journal filter
+            journal = self.request.GET.get('journal', '').strip()
+            if journal:
+                queryset = queryset.filter(journal__icontains=journal)
+            
+            # Year filter
+            year = self.request.GET.get('year', '').strip()
+            if year:
+                try:
+                    queryset = queryset.filter(retraction_date__year=int(year))
+                except ValueError:
+                    pass
+            
+            # Reason filter
+            reason = self.request.GET.get('reason', '').strip()
+            if reason:
+                queryset = queryset.filter(reason__icontains=reason)
+            
+            return queryset
+        except ImportError:
+            # RetractedPaper model not available
+            return RetractedPaper.objects.none()
     
     def get_context_data(self, **kwargs):
-        from .models_retraction import RetractedPaper
-        from .models_citation import CitationData
         context = super().get_context_data(**kwargs)
         
-        # Get filter options
-        context['retraction_natures'] = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).values_list('retraction_nature', flat=True).distinct().order_by('retraction_nature')
-        
-        context['retraction_years'] = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).dates('retraction_date', 'year', order='DESC')[:10]
-        
-        # Get popular journals with retractions
-        context['popular_journals'] = RetractedPaper.objects.filter(
-            original_pubmed_id__in=Paper.objects.values('pmid')
-        ).values('journal').annotate(
-            count=Count('id')
-        ).order_by('-count')[:10]
-        
-        # Get most problematic retracted papers (those with highest citation impact)
         try:
-            context['most_problematic_papers'] = CitationData.objects.select_related(
-                'retracted_paper'
-            ).order_by('-problematic_score')[:10]
+            from .models_retraction import RetractedPaper
+            from .models_citation import CitationData
+            from django.db.models import Sum, Count, Avg, Q
+            
+            # Basic statistics
+            context['total_retractions'] = RetractedPaper.objects.count()
+            context['recent_retractions'] = RetractedPaper.objects.filter(
+                retraction_date__gte=timezone.now() - timedelta(days=365)
+            ).count()
+            
+            # Top journals by retraction count
+            context['top_journals'] = RetractedPaper.objects.values('journal').annotate(
+                count=Count('id')
+            ).order_by('-count')[:10]
+            
+            # Top reasons for retraction
+            context['top_reasons'] = RetractedPaper.objects.exclude(
+                reason__isnull=True
+            ).exclude(
+                reason__exact=''
+            ).values('reason').annotate(
+                count=Count('id')
+            ).order_by('-count')[:10]
+            
+            # Get papers with highest citation counts
+            context['most_cited_retracted'] = RetractedPaper.objects.exclude(
+                total_citations__isnull=True
+            ).order_by('-total_citations')[:10]
+
             
             # Get papers with post-retraction citations
             context['post_retraction_citations'] = CitationData.objects.select_related(
@@ -1037,8 +851,10 @@ class RetractionsListView(ListView):
         context['has_filters'] = bool(self.request.GET)
         
         return context
+
+
 def evidence_gaps(request):
-    """Evidence Gaps page showing Cochrane SoF analysis with consolidated reviews for oral health."""
+    """Evidence Gaps page showing Cochrane SoF analysis with consolidated reviews."""
     from django.core.paginator import Paginator
     from django.db import connection
     import re
@@ -1056,40 +872,6 @@ def evidence_gaps(request):
     
     try:
         cursor = connection.cursor()
-        
-        # Check if evidence_gaps table exists - PostgreSQL/SQLite compatible
-        try:
-            # Try PostgreSQL first
-            cursor.execute("""SELECT COUNT(*) FROM information_schema.tables 
-                             WHERE table_name = 'evidence_gaps';""")
-            table_exists = cursor.fetchone()[0] > 0
-        except:
-            # Fallback for SQLite
-            try:
-                cursor.execute("""SELECT COUNT(*) FROM sqlite_master 
-                                 WHERE type='table' AND name='evidence_gaps';""")
-                table_exists = cursor.fetchone()[0] > 0
-            except:
-                table_exists = False
-        
-        if not table_exists:
-            # Table doesn't exist yet - show placeholder
-            context = {
-                'evidence_gaps': [],
-                'error': None,
-                'placeholder_mode': True,
-                'total_outcomes': 0,
-                'base_reviews': 0,
-                'grade_counts': {},
-                'populations': [],
-                'interventions': [],
-                'current_search': '',
-                'current_grade': '',
-                'current_population': '',
-                'current_intervention': '',
-                'current_order': 'review_title',
-            }
-            return render(request, 'papers/evidence_gaps.html', context)
         
         # Build base query - use original comments as downgrade reasons
         base_query = """
@@ -1171,69 +953,181 @@ def evidence_gaps(request):
                 sorted_versions[version_id] = review_data['versions'][version_id]
             
             review_data['versions'] = sorted_versions
-            consolidated_reviews.append((base_id, review_data))
+            review_data['total_picos'] = sum(len(picos) for picos in sorted_versions.values())
+            consolidated_reviews.append(review_data)
         
-        # Sort by title for consistent ordering
-        consolidated_reviews.sort(key=lambda x: x[1]['latest_title'].lower())
+        # Sort consolidated reviews by latest title
+        consolidated_reviews.sort(key=lambda x: x['latest_title'])
         
-        # Calculate summary statistics
-        total_outcomes = len(evidence_gaps)
-        base_reviews = len(consolidated_reviews)
+        # Pagination
+        paginator = Paginator(consolidated_reviews, 20)  # Show more per page with collapsible tables
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
         
-        # Grade counts
+        # Get summary statistics
         cursor.execute("""
-            SELECT grade_rating, COUNT(*) as count, 
-                   ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM evidence_gaps), 1) as percentage
-            FROM evidence_gaps 
-            GROUP BY grade_rating 
-            ORDER BY 
-                CASE grade_rating 
-                    WHEN 'High' THEN 1 
-                    WHEN 'Moderate' THEN 2 
-                    WHEN 'Low' THEN 3 
-                    WHEN 'Very Low' THEN 4 
-                    WHEN 'No Evidence Yet' THEN 5 
-                    ELSE 6 
-                END
+            SELECT 
+                COUNT(DISTINCT review_id) as total_reviews,
+                COUNT(*) as total_outcomes
+            FROM evidence_gaps
         """)
+        stats_row = cursor.fetchone()
+        total_reviews = stats_row[0]
+        total_outcomes = stats_row[1]
         
-        grade_counts = {}
-        for row in cursor.fetchall():
-            grade_counts[row[0]] = {'count': row[1], 'percentage': row[2]}
+        # Count distinct base reviews
+        base_reviews = len(set(extract_base_review_id(gap['review_id']) for gap in evidence_gaps))
         
-        # Get filter options
+        # Get grade distribution with specific order
+        cursor.execute("""
+            SELECT grade_rating, COUNT(*) as count 
+            FROM evidence_gaps 
+            GROUP BY grade_rating
+        """)
+        grade_columns = [col[0] for col in cursor.description]
+        grade_stats = [dict(zip(grade_columns, row)) for row in cursor.fetchall()]
+        
+        # Get downgrading reasons statistics for LATEST VERSIONS ONLY
+        # First, get the latest version ID for each review series
+        latest_versions = []
+        for base_id, review_data in grouped_reviews.items():
+            # Get the latest version (highest version number)
+            latest_version_id = max(review_data['versions'].keys(), key=get_version_number)
+            latest_versions.append(latest_version_id)
+        
+        if latest_versions:
+            # Create placeholders for the IN clause
+            placeholders = ','.join(['%s'] * len(latest_versions))
+            cursor.execute(f"""
+                SELECT 
+                    SUM(CASE WHEN risk_of_bias = true THEN 1 ELSE 0 END) as risk_of_bias_count,
+                    SUM(CASE WHEN imprecision = true THEN 1 ELSE 0 END) as imprecision_count,
+                    SUM(CASE WHEN inconsistency = true THEN 1 ELSE 0 END) as inconsistency_count,
+                    SUM(CASE WHEN indirectness = true THEN 1 ELSE 0 END) as indirectness_count,
+                    SUM(CASE WHEN publication_bias = true THEN 1 ELSE 0 END) as publication_bias_count,
+                    COUNT(*) as total_picos
+                FROM evidence_gaps 
+                WHERE review_id IN ({placeholders}) 
+                  AND grade_rating != 'High' AND grade_rating != 'No Evidence Yet'
+            """, latest_versions)
+            downgrade_stats_row = cursor.fetchone()
+        else:
+            downgrade_stats_row = (0, 0, 0, 0, 0, 0)
+        
+        # Calculate downgrading reasons with percentages
+        downgrade_reasons = {}
+        if downgrade_stats_row and downgrade_stats_row[5] > 0:  # total_picos > 0
+            total_downgraded = downgrade_stats_row[5]
+            downgrade_reasons = {
+                'risk_of_bias': {
+                    'count': downgrade_stats_row[0],
+                    'percentage': round((downgrade_stats_row[0] / total_downgraded) * 100, 1)
+                },
+                'imprecision': {
+                    'count': downgrade_stats_row[1], 
+                    'percentage': round((downgrade_stats_row[1] / total_downgraded) * 100, 1)
+                },
+                'inconsistency': {
+                    'count': downgrade_stats_row[2],
+                    'percentage': round((downgrade_stats_row[2] / total_downgraded) * 100, 1)
+                },
+                'indirectness': {
+                    'count': downgrade_stats_row[3],
+                    'percentage': round((downgrade_stats_row[3] / total_downgraded) * 100, 1)
+                },
+                'publication_bias': {
+                    'count': downgrade_stats_row[4],
+                    'percentage': round((downgrade_stats_row[4] / total_downgraded) * 100, 1)
+                }
+            }
+        
+        # Order grades properly: High, Moderate, Low, Very Low, No Evidence Yet
+        grade_order = ['High', 'Moderate', 'Low', 'Very Low', 'No Evidence Yet']
+        grade_counts = OrderedDict()
+        
+        # Add grades in the specified order
+        for grade in grade_order:
+            for stat in grade_stats:
+                if stat['grade_rating'] == grade:
+                    grade_counts[grade] = stat['count']
+                    break
+            else:
+                grade_counts[grade] = 0  # Add with 0 count if not found
+        
+        # Get unique populations and interventions for filters
         cursor.execute("SELECT DISTINCT population FROM evidence_gaps WHERE population IS NOT NULL AND population != '' ORDER BY population")
         populations = [row[0] for row in cursor.fetchall()]
         
-        cursor.execute("SELECT DISTINCT intervention FROM evidence_gaps WHERE intervention IS NOT NULL AND intervention != '' ORDER BY intervention")
+        cursor.execute("SELECT DISTINCT intervention FROM evidence_gaps WHERE intervention IS NOT NULL AND intervention != '' ORDER BY intervention")  
         interventions = [row[0] for row in cursor.fetchall()]
         
-        # Prepare context
+        # Transform data for template
+        structured_data = []
+        for review in page_obj:
+            # Get latest version data
+            latest_version_key = list(review['versions'].keys())[0]
+            latest_picos = review['versions'][latest_version_key]
+            
+            # Count evidence gaps (Low, Very Low, No Evidence Yet)
+            evidence_gaps_count = sum(1 for pico in latest_picos 
+                                    if pico['grade_rating'] in ['Low', 'Very Low', 'No Evidence Yet'])
+            
+            # Structure older versions
+            older_versions_data = []
+            for version_key in list(review['versions'].keys())[1:]:  # Skip first (latest)
+                version_picos = review['versions'][version_key]
+                if version_picos:  # Only add if has PICOs
+                    older_versions_data.append({
+                        'review_id': version_key,
+                        'publication_year': version_picos[0].get('year', ''),
+                        'doi': version_picos[0].get('doi', ''),
+                        'picos': version_picos
+                    })
+            
+            structured_data.append({
+                'current': {
+                    'review_id': latest_version_key,
+                    'review_title': review['latest_title'],
+                    'publication_year': review['latest_year'],
+                    'doi': review['latest_doi']
+                },
+                'current_picos': latest_picos,
+                'evidence_gaps_count': evidence_gaps_count,
+                'older_versions': older_versions_data
+            })
+        
         context = {
-            'evidence_gaps': consolidated_reviews,
+            'evidence_gaps': structured_data,
+            'page_obj': page_obj,
             'total_outcomes': total_outcomes,
             'base_reviews': base_reviews,
             'grade_counts': grade_counts,
+            'downgrade_reasons': downgrade_reasons,
             'populations': populations,
             'interventions': interventions,
-            'current_search': search,
-            'current_grade': grade,
-            'current_population': population,
-            'current_intervention': intervention,
+            'current_search': request.GET.get('q', ''),
+            'current_grade': request.GET.get('grade', ''),
+            'current_population': request.GET.get('population', ''),
+            'current_intervention': request.GET.get('intervention', ''),
             'current_order': request.GET.get('order_by', 'review_title'),
-            'placeholder_mode': False,
         }
         
-        return render(request, 'papers/evidence_gaps.html', context)
-    
     except Exception as e:
-        return render(request, 'papers/evidence_gaps.html', {
+        # Handle database errors gracefully
+        context = {
             'evidence_gaps': [],
-            'error': f'Database error: {str(e)}',
-            'placeholder_mode': True,
+            'error': f"Database error: {str(e)}",
             'total_outcomes': 0,
             'base_reviews': 0,
             'grade_counts': {},
+            'downgrade_reasons': {},
             'populations': [],
             'interventions': [],
-        })
+            'current_search': request.GET.get('q', ''),
+            'current_grade': request.GET.get('grade', ''),
+            'current_population': request.GET.get('population', ''),
+            'current_intervention': request.GET.get('intervention', ''),
+            'current_order': request.GET.get('order_by', 'review_title'),
+        }
+    
+    return render(request, 'papers/evidence_gaps.html', context)

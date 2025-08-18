@@ -12,72 +12,6 @@
     </div>
 </div>
 
-{% if placeholder_mode %}
-<!-- Placeholder Mode - No Data Yet -->
-<div class="row">
-    <div class="col-12">
-        <div class="card border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-info-circle"></i> Evidence Gaps Database - Coming Soon
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="text-center py-5">
-                    <i class="bi bi-diagram-3" style="font-size: 4rem; color: var(--primary-color); opacity: 0.3;"></i>
-                    <h4 class="mt-3 mb-3">Oral Health Evidence Gaps Analysis</h4>
-                    <p class="text-muted mb-4">
-                        This section will display comprehensive evidence gaps analysis for oral health research, 
-                        including Cochrane systematic reviews, GRADE assessments, and research priority identification.
-                    </p>
-                    
-                    <div class="row text-center mb-4">
-                        <div class="col-md-4">
-                            <div class="bg-light p-3 rounded">
-                                <i class="bi bi-search display-6 text-primary mb-2"></i>
-                                <h6>Gap Identification</h6>
-                                <p class="mb-0 small">Identify areas where high-quality evidence is lacking</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="bg-light p-3 rounded">
-                                <i class="bi bi-bar-chart display-6 text-primary mb-2"></i>
-                                <h6>GRADE Assessment</h6>
-                                <p class="mb-0 small">Evidence quality ratings and certainty assessments</p>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="bg-light p-3 rounded">
-                                <i class="bi bi-bullseye display-6 text-primary mb-2"></i>
-                                <h6>Research Priorities</h6>
-                                <p class="mb-0 small">Guidance for future oral health research directions</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="alert alert-light border" role="alert">
-                        <strong><i class="bi bi-clock"></i> Status:</strong> 
-                        The evidence gaps database is being prepared. Data will be loaded soon to provide comprehensive 
-                        analysis of oral health research gaps and priorities.
-                    </div>
-                    
-                    <div class="mt-4">
-                        <h6>What will be available:</h6>
-                        <ul class="list-unstyled mt-3">
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Systematic review evidence gaps</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> GRADE certainty assessments</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Population-specific evidence needs</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Intervention effectiveness gaps</li>
-                            <li class="mb-2"><i class="bi bi-check-circle text-success"></i> Outcome measurement priorities</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<!-- Active Mode - With Data -->
 <!-- Filters -->
 <div class="card mb-4">
     <div class="card-body">
@@ -115,7 +49,8 @@
                 <select class="form-select" id="population" name="population">
                     <option value="">All Populations</option>
                     {% for pop in populations %}
-                        <option value="{{ pop }}" {% if current_population == pop %}selected{% endif %}>
+                        <option value="{{ pop }}" 
+                            {% if current_population == pop %}selected{% endif %}>
                             {{ pop|truncatechars:30 }}
                         </option>
                     {% endfor %}
@@ -127,7 +62,8 @@
                 <select class="form-select" id="intervention" name="intervention">
                     <option value="">All Interventions</option>
                     {% for intervention in interventions %}
-                        <option value="{{ intervention }}" {% if current_intervention == intervention %}selected{% endif %}>
+                        <option value="{{ intervention }}" 
+                            {% if current_intervention == intervention %}selected{% endif %}>
                             {{ intervention|truncatechars:30 }}
                         </option>
                     {% endfor %}
@@ -135,171 +71,511 @@
             </div>
             
             <div class="col-md-2">
-                <button type="submit" class="btn btn-primary mt-4">
+                <label for="order_by" class="form-label">Sort by</label>
+                <select class="form-select" id="order_by" name="order_by">
+                    <option value="review_title" {% if current_order == "review_title" %}selected{% endif %}>
+                        Review Title
+                    </option>
+                    <option value="grade_rating" {% if current_order == "grade_rating" %}selected{% endif %}>
+                        Evidence Grade
+                    </option>
+                    <option value="population" {% if current_order == "population" %}selected{% endif %}>
+                        Population
+                    </option>
+                    <option value="intervention" {% if current_order == "intervention" %}selected{% endif %}>
+                        Intervention
+                    </option>
+                </select>
+            </div>
+            
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-funnel"></i> Apply Filters
                 </button>
-            </div>
-        </form>
-        
-        <div class="row mt-3">
-            <div class="col-12">
-                <a href="{% url 'papers:evidence_gaps' %}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-x-circle"></i> Clear All Filters
+                <a href="{% url 'papers:evidence_gaps' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Clear
                 </a>
             </div>
-        </div>
+        </form>
     </div>
 </div>
 
-<!-- Evidence Gaps Summary Stats -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0">Evidence Quality Distribution</h6>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    {% for grade, data in grade_counts.items %}
-                    <div class="col-md-2 mb-2">
-                        <div class="border rounded p-2">
-                            <div class="fw-bold 
-                                {% if grade == 'High' %}text-success
-                                {% elif grade == 'Moderate' %}text-info
-                                {% elif grade == 'Low' %}text-warning
-                                {% elif grade == 'Very Low' %}text-danger
-                                {% else %}text-muted
-                                {% endif %}">
-                                {{ data.count }}
-                            </div>
-                            <div class="small">{{ grade }}</div>
-                            <div class="small text-muted">{{ data.percentage }}%</div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Evidence Gaps Results -->
-{% if evidence_gaps %}
+<!-- Results -->
 <div class="row">
-    {% for base_id, review_data in evidence_gaps %}
-    <div class="col-12 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1">
-                        <h5 class="mb-1">{{ review_data.latest_title }}</h5>
-                        <div class="text-muted">
-                            {% if review_data.latest_authors %}
-                                <i class="bi bi-people"></i> {{ review_data.latest_authors|truncatechars:100 }}
-                            {% endif %}
-                            {% if review_data.latest_year %}
-                                • <i class="bi bi-calendar"></i> {{ review_data.latest_year }}
-                            {% endif %}
-                            {% if review_data.latest_doi %}
-                                • <a href="https://doi.org/{{ review_data.latest_doi }}" target="_blank" class="text-decoration-none">
-                                    <i class="bi bi-link-45deg"></i> DOI
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="text-end">
-                        <span class="badge bg-secondary">{{ base_id }}</span>
-                        <br>
-                        <small class="text-muted">{{ review_data.versions|length }} version{{ review_data.versions|length|pluralize }}</small>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                {% for version_id, gaps in review_data.versions.items %}
-                <div class="version-section {% if not forloop.first %}mt-4 pt-3 border-top{% endif %}">
-                    {% if review_data.versions|length > 1 %}
-                    <h6 class="text-primary mb-3">
-                        <i class="bi bi-file-earmark-text"></i> Version: {{ version_id }}
-                        <span class="badge bg-light text-dark ms-2">{{ gaps|length }} outcome{{ gaps|length|pluralize }}</span>
-                    </h6>
-                    {% endif %}
-                    
-                    <div class="row">
-                        {% for gap in gaps %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100 border-start-0 border-end-0 border-top-0
-                                {% if gap.grade_rating == 'High' %}border-success
-                                {% elif gap.grade_rating == 'Moderate' %}border-info
-                                {% elif gap.grade_rating == 'Low' %}border-warning
-                                {% elif gap.grade_rating == 'Very Low' %}border-danger
-                                {% else %}border-secondary
-                                {% endif %}" style="border-bottom-width: 3px !important;">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <span class="badge 
-                                            {% if gap.grade_rating == 'High' %}bg-success
-                                            {% elif gap.grade_rating == 'Moderate' %}bg-info
-                                            {% elif gap.grade_rating == 'Low' %}bg-warning text-dark
-                                            {% elif gap.grade_rating == 'Very Low' %}bg-danger
-                                            {% else %}bg-secondary
-                                            {% endif %}">
-                                            {{ gap.grade_rating }}
-                                        </span>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <strong class="text-primary">Population:</strong>
-                                        <div class="text-muted small">{{ gap.population|default:"Not specified" }}</div>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <strong class="text-success">Intervention:</strong>
-                                        <div class="text-muted small">{{ gap.intervention|default:"Not specified" }}</div>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <strong class="text-warning">Comparison:</strong>
-                                        <div class="text-muted small">{{ gap.comparison|default:"Not specified" }}</div>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <strong class="text-danger">Outcome:</strong>
-                                        <div class="text-muted small">{{ gap.outcome|default:"Not specified" }}</div>
-                                    </div>
-                                    
-                                    {% if gap.downgrade_reason_summary and gap.downgrade_reason_summary != 'None' and gap.downgrade_reason_summary != 'N/A' %}
-                                    <div class="mt-3 p-2 bg-light rounded">
-                                        <small><strong>Evidence limitations:</strong></small>
-                                        <small class="d-block text-muted">{{ gap.downgrade_reason_summary }}</small>
-                                    </div>
+    <div class="col-lg-8">
+        {% if evidence_gaps %}
+            <!-- Consolidated Review Series -->
+            {% for review_series in evidence_gaps %}
+            <div class="col-12 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">
+                                    <i class="bi bi-file-medical"></i>
+                                    {% if review_series.current.review_title %}
+                                        {{ review_series.current.review_title }}
+                                    {% else %}
+                                        {{ review_series.current.review_id }}
+                                    {% endif %}
+                                </h5>
+                                <div class="text-muted small">
+                                    <strong>Current Version:</strong> {{ review_series.current.review_id }}
+                                    {% if review_series.current.publication_year %}
+                                        ({{ review_series.current.publication_year }})
+                                    {% endif %}
+                                    {% if review_series.older_versions %}
+                                        | <strong>{{ review_series.older_versions|length }} older version{{ review_series.older_versions|length|pluralize }}</strong>
                                     {% endif %}
                                 </div>
                             </div>
+                            <div>
+                                {% if review_series.current.doi %}
+                                    <a href="https://doi.org/{{ review_series.current.doi }}" target="_blank" 
+                                       class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-link-45deg"></i> DOI
+                                    </a>
+                                {% endif %}
+                            </div>
                         </div>
-                        {% endfor %}
+                    </div>
+                    <div class="card-body">
+                        <!-- Current Version PICO Table (Collapsible) -->
+                        <div class="d-flex align-items-center mb-3">
+                            <h6 class="mb-0 me-2">
+                                <i class="bi bi-bullseye"></i> Current Evidence Gaps
+                                {% comment %}Count evidence gaps (Low, Very Low, No Evidence Yet){% endcomment %}
+                                {% if review_series.evidence_gaps_count > 0 %}
+                                    <span class="badge bg-warning text-dark ms-1">{{ review_series.evidence_gaps_count }} gap{{ review_series.evidence_gaps_count|pluralize }}</span>
+                                {% endif %}
+                            </h6>
+                            <button class="btn btn-sm btn-outline-primary" type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#current-picos-{{ review_series.current.review_id|slugify }}" 
+                                    aria-expanded="false">
+                                <i class="bi bi-chevron-down"></i> Show {{ review_series.current_picos|length }} PICO question{{ review_series.current_picos|length|pluralize }}
+                            </button>
+                        </div>
+                        
+                        <div class="collapse" id="current-picos-{{ review_series.current.review_id|slugify }}">
+                            <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 20%">Population</th>
+                                        <th style="width: 20%">Intervention</th>
+                                        <th style="width: 15%">Comparison</th>
+                                        <th style="width: 25%">Outcome</th>
+                                        <th style="width: 15%">Evidence Level</th>
+                                        <th style="width: 5%">Downgrade Reason</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for gap in review_series.current_picos %}
+                                    <tr>
+                                        <td class="small">{{ gap.population|default:"Not specified" }}</td>
+                                        <td class="small">{{ gap.intervention|default:"Not specified" }}</td>
+                                        <td class="small">{{ gap.comparison|default:"Not specified" }}</td>
+                                        <td class="small">{{ gap.outcome }}</td>
+                                        <td>
+                                            {% if gap.grade_rating == "High" %}
+                                                <span class="badge bg-success small">{{ gap.grade_rating }}</span>
+                                            {% elif gap.grade_rating == "Moderate" %}
+                                                <span class="badge bg-info small">{{ gap.grade_rating }}</span>
+                                            {% elif gap.grade_rating == "Low" %}
+                                                <span class="badge bg-warning text-dark small">{{ gap.grade_rating }}</span>
+                                            {% elif gap.grade_rating == "Very Low" %}
+                                                <span class="badge bg-danger small">{{ gap.grade_rating }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary small">{{ gap.grade_rating }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="small">{{ gap.downgrade_reason_summary|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Older Versions (Collapsible) -->
+                        {% if review_series.older_versions %}
+                        <div class="mt-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <h6 class="mb-0 me-2">
+                                    <i class="bi bi-clock-history"></i> Previous Versions
+                                </h6>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#older-versions-{{ review_series.current.review_id|slugify }}" 
+                                        aria-expanded="false">
+                                    <i class="bi bi-chevron-down"></i> Show {{ review_series.older_versions|length }} older version{{ review_series.older_versions|length|pluralize }}
+                                </button>
+                            </div>
+                            
+                            <div class="collapse" id="older-versions-{{ review_series.current.review_id|slugify }}">
+                                {% for version in review_series.older_versions %}
+                                <div class="border rounded p-3 mb-3 bg-light">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0">{{ version.review_id }} {% if version.publication_year %}({{ version.publication_year }}){% endif %}</h6>
+                                        <div>
+                                            {% if version.doi %}
+                                                <a href="https://doi.org/{{ version.doi }}" target="_blank" 
+                                                   class="btn btn-outline-secondary btn-sm">
+                                                    <i class="bi bi-link-45deg"></i> DOI
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-striped mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 20%">Population</th>
+                                                    <th style="width: 20%">Intervention</th>
+                                                    <th style="width: 15%">Comparison</th>
+                                                    <th style="width: 25%">Outcome</th>
+                                                    <th style="width: 15%">Evidence Level</th>
+                                                    <th style="width: 5%">Studies</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for gap in version.picos %}
+                                                <tr>
+                                                    <td class="small">{{ gap.population|default:"Not specified" }}</td>
+                                                    <td class="small">{{ gap.intervention|default:"Not specified" }}</td>
+                                                    <td class="small">{{ gap.comparison|default:"Not specified" }}</td>
+                                                    <td class="small">{{ gap.outcome }}</td>
+                                                    <td>
+                                                        {% if gap.grade_rating == "High" %}
+                                                            <span class="badge bg-success small">{{ gap.grade_rating }}</span>
+                                                        {% elif gap.grade_rating == "Moderate" %}
+                                                            <span class="badge bg-info small">{{ gap.grade_rating }}</span>
+                                                        {% elif gap.grade_rating == "Low" %}
+                                                            <span class="badge bg-warning text-dark small">{{ gap.grade_rating }}</span>
+                                                        {% elif gap.grade_rating == "Very Low" %}
+                                                            <span class="badge bg-danger small">{{ gap.grade_rating }}</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary small">{{ gap.grade_rating }}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="small">{{ gap.studies|default:"-" }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+                <nav aria-label="Evidence gaps pagination" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ num }}</span>
+                                </li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                                    <i class="bi bi-chevron-double-right"></i>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                
+                <div class="text-center text-muted">
+                    Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} review series
+                </div>
+            {% endif %}
+            
+        {% else %}
+            <!-- No Results -->
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-search display-4 text-muted mb-3"></i>
+                    <h4>No evidence gaps found</h4>
+                    <p class="text-muted">
+                        {% if current_search or current_grade or current_population or current_intervention %}
+                            Try adjusting your search filters or 
+                            <a href="{% url 'papers:evidence_gaps' %}">view all evidence gaps</a>.
+                        {% else %}
+                            No evidence gaps data has been loaded yet.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Right Sidebar -->
+    <div class="col-lg-4">
+        <!-- Summary Stats -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-pie-chart"></i> Summary Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 text-center">
+                    <div class="col-6">
+                        <div class="bg-light rounded p-3">
+                            <div class="h3 mb-1 fw-bold text-primary">{{ base_reviews }}</div>
+                            <div class="small text-muted">Review Series</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-light rounded p-3">
+                            <div class="h3 mb-1 fw-bold text-primary">{{ total_outcomes }}</div>
+                            <div class="small text-muted">PICO Questions</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Evidence Certainty Distribution -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-bar-chart"></i> Evidence Certainty
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- High Certainty -->
+                {% if grade_counts.High %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-success me-2">High</span>
+                    </div>
+                    <div>
+                        <strong>{{ grade_counts.High.count }}</strong> 
+                        <small class="text-muted">({{ grade_counts.High.percentage }}%)</small>
+                    </div>
+                </div>
+                <div class="progress mb-3" style="height: 6px;">
+                    <div class="progress-bar bg-success" style="width: {{ grade_counts.High.percentage }}%"></div>
+                </div>
+                {% endif %}
+                
+                <!-- Moderate Certainty -->
+                {% if grade_counts.Moderate %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-info me-2">Moderate</span>
+                    </div>
+                    <div>
+                        <strong>{{ grade_counts.Moderate.count }}</strong> 
+                        <small class="text-muted">({{ grade_counts.Moderate.percentage }}%)</small>
+                    </div>
+                </div>
+                <div class="progress mb-3" style="height: 6px;">
+                    <div class="progress-bar bg-info" style="width: {{ grade_counts.Moderate.percentage }}%"></div>
+                </div>
+                {% endif %}
+                
+                <!-- Low Certainty -->
+                {% if grade_counts.Low %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-warning text-dark me-2">Low</span>
+                    </div>
+                    <div>
+                        <strong>{{ grade_counts.Low.count }}</strong> 
+                        <small class="text-muted">({{ grade_counts.Low.percentage }}%)</small>
+                    </div>
+                </div>
+                <div class="progress mb-3" style="height: 6px;">
+                    <div class="progress-bar bg-warning" style="width: {{ grade_counts.Low.percentage }}%"></div>
+                </div>
+                {% endif %}
+                
+                <!-- Very Low Certainty -->
+                {% for grade, data in grade_counts.items %}
+                    {% if grade == "Very Low" %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger me-2">Very Low</span>
+                        </div>
+                        <div>
+                            <strong>{{ data.count }}</strong> 
+                            <small class="text-muted">({{ data.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 6px;">
+                        <div class="progress-bar bg-danger" style="width: {{ data.percentage }}%"></div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- No Evidence Yet -->
+                {% for grade, data in grade_counts.items %}
+                    {% if grade == "No Evidence Yet" %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2">No Evidence Yet</span>
+                        </div>
+                        <div>
+                            <strong>{{ data.count }}</strong> 
+                            <small class="text-muted">({{ data.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 6px;">
+                        <div class="progress-bar bg-secondary" style="width: {{ data.percentage }}%"></div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Any other grades not covered above -->
+                {% for grade, data in grade_counts.items %}
+                    {% if grade != "High" and grade != "Moderate" and grade != "Low" and grade != "Very Low" and grade != "No Evidence Yet" %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2">{{ grade }}</span>
+                        </div>
+                        <div>
+                            <strong>{{ data.count }}</strong> 
+                            <small class="text-muted">({{ data.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 6px;">
+                        <div class="progress-bar bg-secondary" style="width: {{ data.percentage }}%"></div>
+                    </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>
+        
+        <!-- GRADE Downgrading Reasons -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-arrow-down-circle"></i> GRADE Downgrading Reasons
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    {% if downgrade_reasons %}
+                    <!-- Risk of bias -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                            <span>Risk of Bias</span>
+                        </div>
+                        <div>
+                            <strong>{{ downgrade_reasons.risk_of_bias.count }}</strong> 
+                            <small class="text-muted">({{ downgrade_reasons.risk_of_bias.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-warning" style="width: {{ downgrade_reasons.risk_of_bias.percentage }}%"></div>
+                    </div>
+                    
+                    <!-- Imprecision -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-question-circle text-info me-2"></i>
+                            <span>Imprecision</span>
+                        </div>
+                        <div>
+                            <strong>{{ downgrade_reasons.imprecision.count }}</strong> 
+                            <small class="text-muted">({{ downgrade_reasons.imprecision.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-info" style="width: {{ downgrade_reasons.imprecision.percentage }}%"></div>
+                    </div>
+                    
+                    <!-- Inconsistency -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-arrow-left-right text-danger me-2"></i>
+                            <span>Inconsistency</span>
+                        </div>
+                        <div>
+                            <strong>{{ downgrade_reasons.inconsistency.count }}</strong> 
+                            <small class="text-muted">({{ downgrade_reasons.inconsistency.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-danger" style="width: {{ downgrade_reasons.inconsistency.percentage }}%"></div>
+                    </div>
+                    
+                    <!-- Indirectness -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-shuffle text-secondary me-2"></i>
+                            <span>Indirectness</span>
+                        </div>
+                        <div>
+                            <strong>{{ downgrade_reasons.indirectness.count }}</strong> 
+                            <small class="text-muted">({{ downgrade_reasons.indirectness.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-secondary" style="width: {{ downgrade_reasons.indirectness.percentage }}%"></div>
+                    </div>
+                    
+                    <!-- Publication bias -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-funnel text-dark me-2"></i>
+                            <span>Publication Bias</span>
+                        </div>
+                        <div>
+                            <strong>{{ downgrade_reasons.publication_bias.count }}</strong> 
+                            <small class="text-muted">({{ downgrade_reasons.publication_bias.percentage }}%)</small>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height: 4px;">
+                        <div class="progress-bar bg-dark" style="width: {{ downgrade_reasons.publication_bias.percentage }}%"></div>
+                    </div>
+                    
+                    {% else %}
+                    <p class="text-muted mb-0">No downgrading reason data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-    {% endfor %}
 </div>
-{% else %}
-<div class="text-center py-5">
-    <i class="bi bi-search" style="font-size: 3rem; color: var(--text-muted);"></i>
-    <h4 class="mt-3">No evidence gaps found</h4>
-    <p class="text-muted">
-        {% if current_search or current_grade or current_population or current_intervention %}
-            Try adjusting your search filters or 
-            <a href="{% url 'papers:evidence_gaps' %}">view all evidence gaps</a>.
-        {% else %}
-            No evidence gaps data is currently available in the database.
-        {% endif %}
-    </p>
-</div>
-{% endif %}
-{% endif %}
 
 {% if error %}
 <div class="alert alert-danger" role="alert">
@@ -313,10 +589,34 @@
 <script>
 // Auto-submit form on filter changes for better UX
 document.addEventListener('DOMContentLoaded', function() {
-    const selectElements = document.querySelectorAll('#grade, #population, #intervention');
-    selectElements.forEach(function(select) {
+    const filterForm = document.querySelector('form');
+    const selectElements = filterForm.querySelectorAll('select');
+    
+    selectElements.forEach(select => {
         select.addEventListener('change', function() {
-            this.form.submit();
+            // Debounce rapid changes
+            clearTimeout(this.submitTimeout);
+            this.submitTimeout = setTimeout(() => {
+                filterForm.submit();
+            }, 300);
+        });
+    });
+    
+    // Handle collapse button icon changes
+    const collapseButtons = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    collapseButtons.forEach(button => {
+        const icon = button.querySelector('i');
+        const targetId = button.getAttribute('data-bs-target');
+        const targetElement = document.querySelector(targetId);
+        
+        targetElement.addEventListener('show.bs.collapse', function () {
+            icon.classList.remove('bi-chevron-down');
+            icon.classList.add('bi-chevron-up');
+        });
+        
+        targetElement.addEventListener('hide.bs.collapse', function () {
+            icon.classList.remove('bi-chevron-up');
+            icon.classList.add('bi-chevron-down');
         });
     });
 });
