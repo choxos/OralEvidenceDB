@@ -62,6 +62,19 @@
                     </option>
                 </select>
             </div>
+
+            <div class="col-md-2">
+                <label for="has_data" class="form-label">Associated Data</label>
+                <select class="form-select" id="has_data" name="has_data">
+                    <option value="">All Papers</option>
+                    <option value="true" {% if current_has_data == "true" %}selected{% endif %}>
+                        With Data
+                    </option>
+                    <option value="false" {% if current_has_data == "false" %}selected{% endif %}>
+                        Without Data
+                    </option>
+                </select>
+            </div>
             
             <div class="col-md-2">
                 <label for="order_by" class="form-label">Sort by</label>
@@ -267,7 +280,7 @@
             <i class="bi bi-search display-4 text-muted mb-3"></i>
             <h4>No papers found</h4>
             <p class="text-muted">
-                {% if current_search or current_journal or current_year or current_has_pico %}
+                {% if current_search or current_journal or current_year or current_has_pico or current_has_data %}
                     Try adjusting your search filters or 
                     <a href="{% url 'papers:list' %}">view all papers</a>.
                 {% else %}

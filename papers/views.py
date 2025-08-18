@@ -136,6 +136,29 @@ class PaperListView(ListView):
         elif has_pico == 'false':
             queryset = queryset.filter(pico_extractions__isnull=True)
         
+        # Filter by Associated Data availability 
+        has_data = self.request.GET.get('has_data')
+        if has_data == 'true':
+            # Papers with associated data (GitHub repos, shared datasets, etc.)
+            queryset = queryset.filter(
+                Q(abstract__icontains='github.com') |
+                Q(abstract__icontains='data available') |
+                Q(abstract__icontains='supplementary') |
+                Q(doi__icontains='figshare') |
+                Q(doi__icontains='zenodo') |
+                Q(doi__icontains='osf.io')
+            ).distinct()
+        elif has_data == 'false':
+            # Papers without associated data indicators
+            queryset = queryset.exclude(
+                Q(abstract__icontains='github.com') |
+                Q(abstract__icontains='data available') |
+                Q(abstract__icontains='supplementary') |
+                Q(doi__icontains='figshare') |
+                Q(doi__icontains='zenodo') |
+                Q(doi__icontains='osf.io')
+            )
+        
         # Filter by shared data availability
         has_data = self.request.GET.get('has_data')
         if has_data == 'true':
