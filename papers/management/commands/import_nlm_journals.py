@@ -110,11 +110,13 @@ class Command(BaseCommand):
                     display_name = abbreviation  # What we show on website
                     reference_name = full_name   # Full name for reference
                     
-                    # Look for existing journal by full name or abbreviation
+                    # Look for existing journal with flexible matching
                     from django.db import models
                     existing_journal = Journal.objects.filter(
-                        models.Q(name__iexact=display_name) | 
-                        models.Q(abbreviation__iexact=reference_name)
+                        models.Q(name__iexact=display_name) |  # Match abbreviation in name
+                        models.Q(abbreviation__iexact=reference_name) |  # Match full name in abbreviation
+                        models.Q(name__iexact=reference_name) |  # Match full name in name (from MEDLINE import)
+                        models.Q(abbreviation__iexact=display_name)  # Match abbreviation in abbreviation
                     ).first()
                     
                     if existing_journal:
