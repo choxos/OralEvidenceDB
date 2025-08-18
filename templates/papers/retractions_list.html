@@ -257,11 +257,7 @@
                         <div class="retraction-reason">
                             <strong class="text-danger">Retraction Reason:</strong>
                             <div class="mt-1">
-                                {% for reason in retraction.reason|slice:":200"|split:";" %}
-                                {% if reason.strip %}
-                                <span class="reason-tag">{{ reason.strip }}</span>
-                                {% endif %}
-                                {% endfor %}
+                                <span class="reason-tag">{{ retraction.reason|slice:":200" }}</span>
                                 {% if retraction.reason|length > 200 %}...{% endif %}
                             </div>
                         </div>
