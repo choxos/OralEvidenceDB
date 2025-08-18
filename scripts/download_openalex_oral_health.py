@@ -157,13 +157,12 @@ class OralHealthOpenAlexDownloader:
     
     def build_search_query(self) -> str:
         """Build OpenAlex search query from oral health terms."""
-        # Create OR query for title and abstract
-        title_queries = [f'title.search:"{term}"' for term in self.search_terms]
-        abstract_queries = [f'abstract.search:"{term}"' for term in self.search_terms]
+        # OpenAlex search approach: combine all terms in a single search
+        # This searches for any of these terms in title OR abstract
+        terms_combined = " OR ".join([term.replace(" ", "+") for term in self.search_terms])
         
-        # Combine title and abstract searches
-        all_queries = title_queries + abstract_queries
-        search_query = "|".join(all_queries)
+        # Use the default.search field which searches across title, abstract, and fulltext
+        search_query = f"default.search:{terms_combined}"
         
         return search_query
     
