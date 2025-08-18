@@ -105,23 +105,16 @@ def safe_int(value):
     except (ValueError, TypeError):
         return None
 
-def create_table_if_not_exists(cursor):
+def create_table_if_not_exists(cursor, is_postgres=False):
     """Create evidence_gaps table if it doesn't exist."""
     logger.info("Creating evidence_gaps table if it doesn't exist...")
-    
-    try:
-        # Check if we're using PostgreSQL or SQLite
-        cursor.execute("SELECT version()")
-        db_version = cursor.fetchone()[0]
-        is_postgres = 'PostgreSQL' in db_version
-    except:
-        is_postgres = False
     
     if is_postgres:
         # Read PostgreSQL schema
         with open('create_evidence_gaps_table.sql', 'r') as f:
             sql_script = f.read()
         cursor.execute(sql_script)
+        logger.info("✅ PostgreSQL evidence_gaps table ready")
     else:
         # SQLite schema
         cursor.execute('''
@@ -166,10 +159,9 @@ def create_table_if_not_exists(cursor):
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         ''')
-    
-    logger.info("✅ Evidence gaps table ready")
+        logger.info("✅ SQLite evidence_gaps table ready")
 
-def import_sof_data(cursor, filepath):
+def import_sof_data(cursor, filepath, is_postgres=False):
     """Import SoF table data from CSV."""
     logger.info(f"📊 Importing SoF data from {filepath}...")
     
@@ -188,6 +180,10 @@ def import_sof_data(cursor, filepath):
         imported_count = 0
         error_count = 0
         
+        # Choose correct placeholder style
+        placeholder = '%s' if is_postgres else '?'
+        placeholders = ', '.join([placeholder] * 26)
+        
         for _, row in df.iterrows():
             try:
                 # Parse GRADE downgrading reasons
@@ -198,7 +194,7 @@ def import_sof_data(cursor, filepath):
                 publication_bias = parse_boolean_field(row.get('Publication bias', False))
                 
                 # Insert row
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT INTO evidence_gaps (
                         review_id, review_title, population, intervention, comparison, outcome,
                         pico, measure, effect, ci_lower, ci_upper, significant,
@@ -207,8 +203,7 @@ def import_sof_data(cursor, filepath):
                         indirectness, publication_bias, data_source, comments,
                         authors, year, doi
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        {placeholders}
                     )
                 """, (
                     str(row.get('ID', '')),
@@ -253,7 +248,7 @@ def import_sof_data(cursor, filepath):
         logger.error(f"❌ Failed to import SoF data: {e}")
         return 0
 
-def import_non_sof_data(cursor, filepath):
+def import_non_sof_data(cursor, filepath, is_postgres=False):
     """Import non-SoF data from CSV."""
     logger.info(f"📊 Importing non-SoF data from {filepath}...")
     
@@ -272,16 +267,20 @@ def import_non_sof_data(cursor, filepath):
         imported_count = 0
         error_count = 0
         
+        # Choose correct placeholder style
+        placeholder = '%s' if is_postgres else '?'
+        placeholders = ', '.join([placeholder] * 15)
+        
         for _, row in df.iterrows():
             try:
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT INTO evidence_gaps (
                         review_id, population, intervention, comparison, outcome,
                         measure, effect, ci_lower, ci_upper, significant,
                         number_of_participants, number_of_studies, grade_rating,
                         rate_per_100000, data_source
                     ) VALUES (
-                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                        {placeholders}
                     )
                 """, (
                     str(row.get('ID', '')),
@@ -347,15 +346,25 @@ def main():
         conn = get_db_connection()
         cursor = conn.cursor()
         
+        # Detect database type
+        is_postgres = False
+        try:
+            cursor.execute("SELECT version()")
+            version = cursor.fetchone()[0]
+            is_postgres = 'PostgreSQL' in version
+            logger.info(f"🐘 Database type: {'PostgreSQL' if is_postgres else 'SQLite'}")
+        except:
+            logger.info("🗂️ Database type: SQLite (fallback)")
+        
         # Create table
-        create_table_if_not_exists(cursor)
+        create_table_if_not_exists(cursor, is_postgres)
         
         # Clear existing data
         clear_existing_data(cursor)
         
         # Import data
-        sof_count = import_sof_data(cursor, sof_file)
-        non_sof_count = import_non_sof_data(cursor, non_sof_file)
+        sof_count = import_sof_data(cursor, sof_file, is_postgres)
+        non_sof_count = import_non_sof_data(cursor, non_sof_file, is_postgres)
         
         # Commit changes
         conn.commit()

@@ -1034,13 +1034,20 @@ def evidence_gaps(request):
     try:
         cursor = connection.cursor()
         
-        # Check if evidence_gaps table exists - if not, show placeholder
+        # Check if evidence_gaps table exists - PostgreSQL/SQLite compatible
         try:
+            # Try PostgreSQL first
             cursor.execute("""SELECT COUNT(*) FROM information_schema.tables 
                              WHERE table_name = 'evidence_gaps';""")
             table_exists = cursor.fetchone()[0] > 0
         except:
-            table_exists = False
+            # Fallback for SQLite
+            try:
+                cursor.execute("""SELECT COUNT(*) FROM sqlite_master 
+                                 WHERE type='table' AND name='evidence_gaps';""")
+                table_exists = cursor.fetchone()[0] > 0
+            except:
+                table_exists = False
         
         if not table_exists:
             # Table doesn't exist yet - show placeholder
