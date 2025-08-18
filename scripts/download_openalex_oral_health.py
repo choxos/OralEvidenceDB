@@ -57,19 +57,12 @@ class OralHealthOpenAlexDownloader:
             "dental materials", "oral microbiology", "dental radiography"
         ]
         
-        # Create directory structure
+        # Create base directory structure
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.json_dir = self.base_dir / "json_papers"
-        self.json_dir.mkdir(exist_ok=True)
-        
-        # Create year-based subdirectories
-        self.by_year_dir = self.base_dir / "by_year"
-        self.by_year_dir.mkdir(exist_ok=True)
         
         logger.info(f"🦷 OralEvidenceDB OpenAlex Downloader Initialized")
         logger.info(f"📁 Base directory: {self.base_dir}")
-        logger.info(f"📄 JSON papers: {self.json_dir}")
-        logger.info(f"📅 By year: {self.by_year_dir}")
+        logger.info(f"📅 Papers will be saved directly in year subfolders")
     
     def make_request(self, url: str, params: Dict) -> Optional[Dict]:
         """Make API request with error handling and rate limiting."""
@@ -114,7 +107,7 @@ class OralHealthOpenAlexDownloader:
             return ""
     
     def save_paper(self, paper: Dict) -> bool:
-        """Save a paper as JSON file with reconstructed abstract."""
+        """Save a paper as JSON file with reconstructed abstract in year subfolder."""
         try:
             # Extract OpenAlex ID from the paper
             openalex_id = paper.get('id', '').split('/')[-1]
@@ -129,23 +122,31 @@ class OralHealthOpenAlexDownloader:
                 if abstract:
                     paper['reconstructed_abstract'] = abstract
             
-            # Save to main JSON directory
-            filename = self.json_dir / f"{openalex_id}.json"
-            if filename.exists():
-                logger.debug(f"Paper {openalex_id} already exists, skipping")
-                return False
-            
-            with open(filename, 'w', encoding='utf-8') as f:
-                json.dump(paper, f, indent=2, ensure_ascii=False)
-            
-            # Also save by year if publication_year is available
+            # Save by year if publication_year is available
             pub_year = paper.get('publication_year')
             if pub_year and isinstance(pub_year, int):
-                year_dir = self.by_year_dir / str(pub_year)
+                year_dir = self.base_dir / str(pub_year)
                 year_dir.mkdir(exist_ok=True)
                 year_filename = year_dir / f"{openalex_id}.json"
                 
+                # Check if file already exists
+                if year_filename.exists():
+                    logger.debug(f"Paper {openalex_id} already exists in year {pub_year}, skipping")
+                    return False
+                
                 with open(year_filename, 'w', encoding='utf-8') as f:
+                    json.dump(paper, f, indent=2, ensure_ascii=False)
+            else:
+                # For papers without a year, save to 'unknown_year' directory
+                unknown_dir = self.base_dir / "unknown_year"
+                unknown_dir.mkdir(exist_ok=True)
+                unknown_filename = unknown_dir / f"{openalex_id}.json"
+                
+                if unknown_filename.exists():
+                    logger.debug(f"Paper {openalex_id} already exists in unknown_year, skipping")
+                    return False
+                
+                with open(unknown_filename, 'w', encoding='utf-8') as f:
                     json.dump(paper, f, indent=2, ensure_ascii=False)
             
             logger.debug(f"Saved paper: {openalex_id}")
@@ -277,7 +278,7 @@ class OralHealthOpenAlexDownloader:
             logger.info(f"📅 Year range: {min_year} - {max_year}")
             logger.info(f"📈 Years covered: {len(stats['years_coverage'])} different years")
         
-        logger.info(f"📁 Files saved in: {self.base_dir}")
+        logger.info(f"📁 Files saved directly in year folders: {self.base_dir}/<YEAR>/")
         
         return stats
 
@@ -298,7 +299,7 @@ def main():
         
         print(f"\n🎉 Download completed!")
         print(f"📊 {stats['papers_saved']:,} papers saved")
-        print(f"📁 Check data/openalex_oral_health/ for results")
+        print(f"📁 Check data/openalex_oral_health/<YEAR>/ folders for results")
         
         # Save download statistics
         stats_file = downloader.base_dir / "download_stats.json"

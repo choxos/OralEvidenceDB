@@ -1,8 +1,57 @@
 #!/bin/bash
 
 # Script to download oral health articles from PubMed using Entrez
-# Downloads articles from 1940 to 2025, one file per year
+# Downloads articles from specified year range (default: 1940 to 2025)
 # Uses oral health MeSH terms: Stomatognathic Diseases, Dentistry, Oral Health
+
+# Default year range
+START_YEAR=1940
+END_YEAR=2025
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s|--start)
+            START_YEAR="$2"
+            shift 2
+            ;;
+        -e|--end)
+            END_YEAR="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [OPTIONS]"
+            echo "Options:"
+            echo "  -s, --start YEAR    Start year (default: 1940)"
+            echo "  -e, --end YEAR      End year (default: 2025)"
+            echo "  -h, --help          Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                  # Download 1940-2025"
+            echo "  $0 -s 2020 -e 2025  # Download 2020-2025"
+            echo "  $0 -s 2025 -e 2025  # Download only 2025"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use -h or --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Validate year range
+if ! [[ "$START_YEAR" =~ ^[0-9]+$ ]] || ! [[ "$END_YEAR" =~ ^[0-9]+$ ]]; then
+    echo "Error: Start and end years must be numbers"
+    exit 1
+fi
+
+if [ "$START_YEAR" -gt "$END_YEAR" ]; then
+    echo "Error: Start year cannot be greater than end year"
+    exit 1
+fi
+
+echo "Downloading articles for years $START_YEAR to $END_YEAR"
 
 # Create the output directory if it doesn't exist
 mkdir -p data/pubmed_entrez_search
@@ -15,11 +64,11 @@ if ! command -v esearch &> /dev/null; then
     exit 1
 fi
 
-echo "Starting PubMed download for oral health articles (1940-2025)..."
+echo "Starting PubMed download for oral health articles ($START_YEAR-$END_YEAR)..."
 echo "🦷 Using MeSH terms: Stomatognathic Diseases, Dentistry, Oral Health"
 
-# Loop through years 1940 to 2025
-for year in {1940..2025}
+# Loop through the specified year range
+for year in $(seq $START_YEAR $END_YEAR)
 do
     echo "Downloading articles for year: $year"
     
