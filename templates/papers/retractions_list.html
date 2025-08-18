@@ -1,0 +1,417 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Retracted Papers - OralEvidenceDB{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --retraction-red: #dc3545;
+    --retraction-orange: #fd7e14;
+    --retraction-light-red: #ffe6e6;
+    --retraction-dark-red: #721c24;
+}
+
+.retraction-header {
+    background: linear-gradient(135deg, var(--retraction-red), var(--retraction-orange));
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+}
+
+.retraction-card {
+    border-left: 4px solid var(--retraction-red);
+    background: var(--retraction-light-red);
+    transition: all 0.3s ease;
+}
+
+.retraction-card:hover {
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.15);
+    transform: translateY(-2px);
+}
+
+.retraction-badge {
+    background: var(--retraction-red);
+    color: white;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+}
+
+.retraction-date {
+    color: var(--retraction-dark-red);
+    font-weight: 600;
+}
+
+.retraction-reason {
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin: 0.5rem 0;
+}
+
+.search-box {
+    background: white;
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-box:focus {
+    border-color: var(--retraction-red);
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.filter-tabs .nav-link {
+    border-radius: 20px;
+    margin-right: 0.5rem;
+    color: #6c757d;
+    background: #f8f9fa;
+}
+
+.filter-tabs .nav-link.active {
+    background: var(--retraction-red);
+    color: white;
+}
+
+.stats-card {
+    background: linear-gradient(135deg, #fff, #f8f9fa);
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.stats-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--retraction-red);
+}
+
+.reason-tag {
+    display: inline-block;
+    background: rgba(220, 53, 69, 0.1);
+    color: var(--retraction-dark-red);
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    margin: 0.1rem;
+}
+
+.journal-link {
+    color: var(--retraction-red);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.journal-link:hover {
+    text-decoration: underline;
+}
+
+.delay-badge {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+}
+
+.no-retractions {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.no-retractions i {
+    font-size: 3rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="retraction-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h1 class="mb-2"><i class="bi bi-exclamation-triangle me-3"></i>Retracted Papers</h1>
+                <p class="mb-0 opacity-75">Track retracted oral health research papers from Retraction Watch database</p>
+            </div>
+            <div class="col-md-4 text-md-end">
+                {% if retractions|length > 0 %}
+                <div class="stats-card bg-white bg-opacity-20">
+                    <div class="stats-number text-white">{{ retractions|length }}</div>
+                    <div class="text-white-50">Retracted Papers</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Search and Filter Section -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form method="get" class="d-flex">
+                <input type="text" 
+                       name="search" 
+                       value="{{ request.GET.search }}" 
+                       placeholder="Search retracted papers by title, author, journal, or reason..."
+                       class="form-control search-box me-2">
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-search"></i>
+                </button>
+            </form>
+        </div>
+        <div class="col-md-4">
+            <select name="filter" class="form-select" onchange="location = this.value;">
+                <option value="{% url 'papers:retractions_list' %}">All Retractions</option>
+                <option value="{% url 'papers:retractions_list' %}?filter=recent" 
+                        {% if request.GET.filter == 'recent' %}selected{% endif %}>
+                    Recent (Last 30 Days)
+                </option>
+                <option value="{% url 'papers:retractions_list' %}?filter=highly_cited" 
+                        {% if request.GET.filter == 'highly_cited' %}selected{% endif %}>
+                    Highly Cited
+                </option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    {% if total_retractions > 0 %}
+    <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ total_retractions }}</div>
+                <div class="text-muted">Total Retractions</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ recent_retractions_count }}</div>
+                <div class="text-muted">Recent (30 days)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ avg_delay_days|default:"0" }}</div>
+                <div class="text-muted">Avg. Delay (days)</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stats-card">
+                <div class="stats-number">{{ unique_journals }}</div>
+                <div class="text-muted">Affected Journals</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Retractions List -->
+    {% if retractions %}
+        {% for retraction in retractions %}
+        <div class="retraction-card card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-9">
+                        <div class="d-flex align-items-start mb-2">
+                            <span class="retraction-badge me-2">RETRACTED</span>
+                            {% if retraction.retraction_delay_days %}
+                            <span class="delay-badge">{{ retraction.retraction_delay_days }} days delay</span>
+                            {% endif %}
+                        </div>
+                        
+                        <h5 class="card-title mb-2">
+                            {% if retraction.original_pubmed_id %}
+                            <a href="{% url 'papers:detail' pmid=retraction.original_pubmed_id %}" 
+                               class="text-decoration-none text-dark">
+                                {{ retraction.original_title|truncatechars:120 }}
+                            </a>
+                            {% else %}
+                            {{ retraction.original_title|truncatechars:120 }}
+                            {% endif %}
+                        </h5>
+
+                        <div class="mb-2">
+                            <strong>Authors:</strong> {{ retraction.authors|truncatechars:100 }}
+                        </div>
+
+                        <div class="mb-2">
+                            <strong>Journal:</strong> 
+                            <span class="journal-link">{{ retraction.journal }}</span>
+                            {% if retraction.country %}
+                            <span class="text-muted"> • {{ retraction.country }}</span>
+                            {% endif %}
+                        </div>
+
+                        {% if retraction.reason %}
+                        <div class="retraction-reason">
+                            <strong class="text-danger">Retraction Reason:</strong>
+                            <div class="mt-1">
+                                {% for reason in retraction.reason|slice:":200"|split:";" %}
+                                {% if reason.strip %}
+                                <span class="reason-tag">{{ reason.strip }}</span>
+                                {% endif %}
+                                {% endfor %}
+                                {% if retraction.reason|length > 200 %}...{% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if retraction.retraction_nature %}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <strong>Nature:</strong> {{ retraction.retraction_nature }}
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-3 text-md-end">
+                        <div class="mb-2">
+                            {% if retraction.original_paper_date %}
+                            <div class="text-muted small">
+                                <i class="bi bi-calendar"></i> Published
+                                <br><strong>{{ retraction.original_paper_date|date:"M d, Y" }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-2">
+                            {% if retraction.retraction_date %}
+                            <div class="retraction-date small">
+                                <i class="bi bi-exclamation-triangle"></i> Retracted
+                                <br><strong>{{ retraction.retraction_date|date:"M d, Y" }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-3">
+                            {% if retraction.original_pubmed_id %}
+                            <a href="{% url 'papers:detail' pmid=retraction.original_pubmed_id %}" 
+                               class="btn btn-sm btn-outline-danger">
+                                View Paper
+                            </a>
+                            {% endif %}
+                            
+                            {% if retraction.retraction_url %}
+                            <a href="{{ retraction.retraction_url }}" target="_blank" 
+                               class="btn btn-sm btn-outline-secondary">
+                                Retraction Notice <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <nav aria-label="Retractions pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.filter %}&filter={{ request.GET.filter }}{% endif %}">First</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.filter %}&filter={{ request.GET.filter }}{% endif %}">Previous</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.filter %}&filter={{ request.GET.filter }}{% endif %}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.filter %}&filter={{ request.GET.filter }}{% endif %}">Last</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+
+    {% else %}
+        <div class="no-retractions">
+            <i class="bi bi-shield-check"></i>
+            <h3>No Retracted Papers Found</h3>
+            {% if request.GET.search %}
+            <p>No retractions match your search criteria. Try different keywords or clear your search.</p>
+            <a href="{% url 'papers:retractions_list' %}" class="btn btn-outline-secondary">Clear Search</a>
+            {% else %}
+            <p>Great news! No retracted papers found in your current oral health database.</p>
+            <p class="text-muted">
+                The retraction tracking system will automatically identify retracted papers as they are added to the database.
+            </p>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Alert for retraction awareness -->
+<div class="container mt-5">
+    <div class="alert alert-warning" role="alert">
+        <h6><i class="bi bi-info-circle"></i> About Retraction Tracking</h6>
+        <p class="mb-0">
+            This system tracks retracted papers from the <strong>Retraction Watch</strong> database. 
+            Papers are automatically flagged if they appear in both our oral health database and the retraction database.
+            <a href="https://retractionwatch.com/" target="_blank" class="alert-link">Learn more about Retraction Watch <i class="bi bi-box-arrow-up-right"></i></a>
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Add any interactive features for the retraction list
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-submit search form with slight delay
+    const searchInput = document.querySelector('input[name="search"]');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                // Auto-submit could be enabled here if desired
+            }, 1000);
+        });
+    }
+
+    // Animate stats cards on scroll
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+
+    document.querySelectorAll('.stats-card, .retraction-card').forEach(card => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(card);
+    });
+});
+</script>
+{% endblock %}

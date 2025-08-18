@@ -540,6 +540,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'retractions_list' %}active{% endif %}" 
+                           href="{% url 'papers:retractions_list' %}">
+                            <i class="bi bi-exclamation-triangle"></i> Retractions
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{% url 'api:documentation' %}">
                             <i class="bi bi-code-slash"></i> API
                         </a>
