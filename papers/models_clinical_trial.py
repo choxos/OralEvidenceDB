@@ -236,7 +236,7 @@ class NCTExtractionRun(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # Run metadata
-    run_date = models.DateTimeField("Run Date", auto_now_add=True)
+    run_date = models.DateTimeField("Run Date", auto_now_add=True, default=timezone.now)
     run_by = models.CharField("Run By", max_length=100, default="system")
     status = models.CharField("Status", max_length=20, choices=EXTRACTION_STATUSES, default='pending')
     
