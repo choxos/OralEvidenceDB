@@ -1,0 +1,399 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ paper.title|truncatechars:60 }} - OralEvidenceDB{% endblock %}
+
+{% block content %}
+<!-- Paper Details -->
+<div class="paper-detail-container">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Main Paper Information -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="paper-meta">
+                            <span class="badge bg-primary">{{ paper.publication_year|default:"Unknown Year" }}</span>
+                            {% if paper.journal %}
+                                <span class="badge bg-secondary ms-1">{{ paper.journal.name|truncatechars:30 }}</span>
+                            {% endif %}
+                            {% if paper.study_type %}
+                                <span class="badge bg-info ms-1">{{ paper.study_type }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="paper-actions">
+                            {% if paper.doi %}
+                                <a href="https://doi.org/{{ paper.doi }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-link-45deg"></i> DOI
+                                </a>
+                            {% endif %}
+                            {% if paper.pmid %}
+                                <a href="https://pubmed.ncbi.nlm.nih.gov/{{ paper.pmid }}/" target="_blank" class="btn btn-outline-success btn-sm ms-1">
+                                    <i class="bi bi-book"></i> PubMed
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <h1 class="paper-title mb-3">{{ paper.title }}</h1>
+                    
+                    {% if paper.authors.exists %}
+                        <div class="authors-section mb-3">
+                            <p class="authors-list mb-0">
+                                {% for author_paper in paper.authors.all|slice:":10" %}
+                                    <span class="author-name">{{ author_paper.author.full_name }}</span>{% if not forloop.last %}, {% endif %}
+                                {% endfor %}
+                                {% if paper.authors.count > 10 %}
+                                    <span class="text-muted"> (+{{ paper.authors.count|add:"-10" }} more)</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% endif %}
+                    
+                    {% if paper.journal %}
+                        <div class="journal-info mb-3">
+                            <strong>{{ paper.journal.name }}</strong>
+                            {% if paper.volume %}Vol. {{ paper.volume }}{% endif %}
+                            {% if paper.issue %}({{ paper.issue }}){% endif %}
+                            {% if paper.pages %}: {{ paper.pages }}{% endif %}
+                            {% if paper.publication_date %}• {{ paper.publication_date|date:"M Y" }}{% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Abstract and Clinical Trials Tabs -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="abstract-tab" data-bs-toggle="tab" data-bs-target="#abstract-content" 
+                                    type="button" role="tab" aria-controls="abstract-content" aria-selected="true">
+                                <i class="bi bi-file-text"></i> Abstract
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="clinical-trials-tab" data-bs-toggle="tab" data-bs-target="#clinical-trials-content" 
+                                    type="button" role="tab" aria-controls="clinical-trials-content" aria-selected="false">
+                                <i class="bi bi-clipboard2-pulse"></i> Clinical Trials
+                                {% if clinical_trial_links %}
+                                    <span class="badge bg-primary ms-1">{{ clinical_trial_links|length }}</span>
+                                {% endif %}
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <!-- Abstract Tab -->
+                        <div class="tab-pane fade show active" id="abstract-content" role="tabpanel" aria-labelledby="abstract-tab">
+                            {% if paper.abstract %}
+                                <div class="abstract-text">
+                                    <p>{{ paper.abstract|linebreaks }}</p>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-file-text" style="font-size: 2rem; color: var(--text-muted);"></i>
+                                    <p class="mt-3 text-muted">No abstract available for this paper</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Clinical Trials Tab -->
+                        <div class="tab-pane fade" id="clinical-trials-content" role="tabpanel" aria-labelledby="clinical-trials-tab">
+                            {% if clinical_trial_links %}
+                                {% for link in clinical_trial_links %}
+                                <div class="trial-card{% if not forloop.last %} mb-4 pb-4 border-bottom{% endif %}">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h5 class="mb-0">
+                                            <a href="https://clinicaltrials.gov/study/{{ link.clinical_trial.nct_id }}" target="_blank" 
+                                               class="text-decoration-none">
+                                                {{ link.clinical_trial.nct_id }}
+                                                <i class="bi bi-box-arrow-up-right fs-6"></i>
+                                            </a>
+                                        </h5>
+                                        <span class="badge {% if link.extraction_method == 'trial_references' %}bg-info{% elif link.extraction_method == 'manual' %}bg-warning{% else %}bg-success{% endif %} ms-2">
+                                            {{ link.get_extraction_method_display }}
+                                        </span>
+                                    </div>
+                                    
+                                    <h6 class="mb-3">{{ link.clinical_trial.brief_title }}</h6>
+                                    
+                                    <!-- Study Overview Section -->
+                                    <div class="study-overview">
+                                        {% if link.clinical_trial.official_title %}
+                                        <div class="mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-file-text"></i> Official Title</h6>
+                                            <p class="mb-0">{{ link.clinical_trial.official_title }}</p>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if link.clinical_trial.raw_data.protocolSection.descriptionModule.briefSummary %}
+                                        <div class="mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-info-circle"></i> Brief Summary</h6>
+                                            <div class="border-start border-primary ps-3">
+                                                <p class="mb-0">{{ link.clinical_trial.raw_data.protocolSection.descriptionModule.briefSummary|linebreaks }}</p>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if link.clinical_trial.raw_data.protocolSection.descriptionModule.detailedDescription %}
+                                        <div class="mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-text-paragraph"></i> Detailed Description</h6>
+                                            <div class="border-start border-secondary ps-3">
+                                                <p class="mb-0">{{ link.clinical_trial.raw_data.protocolSection.descriptionModule.detailedDescription|linebreaks|truncatewords:200 }}</p>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if link.clinical_trial.primary_outcomes %}
+                                        <div class="mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-bullseye"></i> Primary Outcomes</h6>
+                                            <ul class="list-unstyled">
+                                                {% for outcome in link.clinical_trial.primary_outcomes|slice:":3" %}
+                                                <li class="mb-2">
+                                                    <strong>{{ outcome.measure }}</strong>
+                                                    {% if outcome.timeFrame %}<br><small class="text-muted">Time Frame: {{ outcome.timeFrame }}</small>{% endif %}
+                                                    {% if outcome.description %}<br><small>{{ outcome.description }}</small>{% endif %}
+                                                </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if link.clinical_trial.eligibility_criteria %}
+                                        <div class="mb-3">
+                                            <h6 class="text-primary"><i class="bi bi-person-check"></i> Eligibility Criteria</h6>
+                                            <div class="border-start border-info ps-3">
+                                                <p class="mb-0 small">{{ link.clinical_trial.eligibility_criteria|linebreaks|truncatewords:100 }}</p>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-clipboard2-x" style="font-size: 2rem; color: var(--text-muted);"></i>
+                                    <p class="mt-3 text-muted">No clinical trial protocols linked to this paper</p>
+                                    <small class="text-muted">Clinical trials are automatically linked when NCT numbers are found in the paper's title or abstract.</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- PICO Elements -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-diagram-3"></i> PICO Elements
+                        {% if paper.pico_extractions.count %}
+                            <span class="badge bg-primary ms-2">{{ paper.pico_extractions.count }}</span>
+                        {% endif %}
+                    </h5>
+                    {% if not paper.pico_extractions.count and paper.abstract %}
+                        <button id="extract-pico-btn" class="btn btn-sm btn-primary">
+                            <i class="bi bi-robot"></i> Extract PICO
+                        </button>
+                    {% elif paper.pico_extractions.count and paper.abstract %}
+                        <button id="extract-pico-btn" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrow-clockwise"></i> Re-extract
+                        </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div id="pico-content">
+                        {% if paper.pico_extractions.exists %}
+                            {% for pico in paper.pico_extractions.all %}
+                                <div class="pico-extraction mb-4{% if not forloop.last %} border-bottom pb-4{% endif %}">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <span class="badge bg-info">{{ pico.llm_provider.name }} {{ pico.llm_provider.model_version }}</span>
+                                        <small class="text-muted">{{ pico.extracted_at|date:"M d, Y H:i" }}</small>
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-primary"><i class="bi bi-people"></i> Population</h6>
+                                                <p class="mb-0">{{ pico.population|default:"Not specified" }}</p>
+                                            </div>
+                                            
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-success"><i class="bi bi-gear"></i> Intervention</h6>
+                                                <p class="mb-0">{{ pico.intervention|default:"Not specified" }}</p>
+                                            </div>
+                                            
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-warning"><i class="bi bi-arrows-angle-contract"></i> Comparison</h6>
+                                                <p class="mb-0">{{ pico.comparison|default:"Not specified" }}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="col-md-6">
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-danger"><i class="bi bi-bullseye"></i> Outcome</h6>
+                                                <p class="mb-0">{{ pico.outcome|default:"Not specified" }}</p>
+                                            </div>
+                                            
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-info"><i class="bi bi-geo"></i> Setting</h6>
+                                                <p class="mb-0">{{ pico.setting|default:"Not specified" }}</p>
+                                            </div>
+                                            
+                                            <div class="pico-element mb-3">
+                                                <h6 class="text-secondary"><i class="bi bi-clock"></i> Timeframe</h6>
+                                                <p class="mb-0">{{ pico.timeframe|default:"Not specified" }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if pico.results %}
+                                        <div class="pico-element">
+                                            <h6 class="text-dark"><i class="bi bi-graph-up"></i> Results</h6>
+                                            <p class="mb-0">{{ pico.results }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-diagram-3" style="font-size: 2rem; color: var(--text-muted);"></i>
+                                <p class="mt-3 text-muted">
+                                    {% if paper.abstract %}
+                                        No PICO elements extracted yet. Click "Extract PICO" to analyze this paper.
+                                    {% else %}
+                                        PICO extraction requires an abstract.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <!-- Paper Metadata -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Paper Details</h6>
+                </div>
+                <div class="card-body">
+                    <div class="metadata-item mb-3">
+                        <strong>PMID:</strong>
+                        {% if paper.pmid %}
+                            <a href="https://pubmed.ncbi.nlm.nih.gov/{{ paper.pmid }}/" target="_blank">
+                                {{ paper.pmid }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">Not available</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if paper.doi %}
+                        <div class="metadata-item mb-3">
+                            <strong>DOI:</strong>
+                            <a href="https://doi.org/{{ paper.doi }}" target="_blank" class="text-break">
+                                {{ paper.doi }}
+                            </a>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="metadata-item mb-3">
+                        <strong>Publication Year:</strong>
+                        {{ paper.publication_year|default:"Unknown" }}
+                    </div>
+                    
+                    {% if paper.language %}
+                        <div class="metadata-item mb-3">
+                            <strong>Language:</strong>
+                            {{ paper.language }}
+                        </div>
+                    {% endif %}
+                    
+                    {% if paper.publication_type %}
+                        <div class="metadata-item mb-3">
+                            <strong>Publication Type:</strong>
+                            {{ paper.publication_type }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- MeSH Terms -->
+            {% if paper.mesh_terms.exists %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="bi bi-tags"></i> MeSH Terms</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="mesh-terms">
+                            {% for mesh_term in paper.mesh_terms.all|slice:":15" %}
+                                <span class="badge bg-secondary me-1 mb-1">{{ mesh_term.name }}</span>
+                            {% endfor %}
+                            {% if paper.mesh_terms.count > 15 %}
+                                <span class="text-muted small">+{{ paper.mesh_terms.count|add:"-15" }} more</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <!-- Related Papers -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-collection"></i> Related Papers</h6>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-0">
+                        Related paper suggestions will be available in future updates.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // PICO Extraction
+    const extractBtn = document.getElementById('extract-pico-btn');
+    
+    if (extractBtn) {
+        extractBtn.addEventListener('click', function() {
+            const originalText = this.innerHTML;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Extracting...';
+            this.disabled = true;
+            
+            fetch(`/papers/{{ paper.id }}/extract-pico/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error extracting PICO: ' + (data.message || 'Unknown error'));
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error extracting PICO');
+                this.innerHTML = originalText;
+                this.disabled = false;
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
